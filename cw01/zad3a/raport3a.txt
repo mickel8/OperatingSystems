@@ -1,0 +1,127 @@
+TEST BIBLIOTEKI STATYCZNEJ
+
+* TABLICA ALOKOWANA STATYCZNIE [1000]x[1001] *
+
+Parametry dla fill delete fill_and_delete find => 1000 1000 1000 341 
+
+* Tworzenie tablicy *
+Real time: 0.000000, user time: 0.000000, system time: 0.000000
+* Dodawanie kolejnego wiersza tablicy x razy * 
+Real time: 0.220000, user time: 0.210000, system time: 0.000000
+* Usuwanie kolejnego wiersza tablicy x razy * 
+Real time: 1.720000, user time: 1.710000, system time: 0.000000
+* Dodawanie kolejnego wiersza tablicy x razy * 
+Real time: 0.190000, user time: 0.200000, system time: 0.000000
+* Znajdowanie bloku *
+Real time: 0.010000, user time: 0.000000, system time: 0.000000
+* Usuwanie kolejnego wiersza tablicy x razy * 
+Real time: 0.000000, user time: 0.000000, system time: 0.000000
+* Wstawianie i usuwanie x razy * 
+Real time: 0.350000, user time: 0.360000, system time: 0.000000
+
+* TABLICA ALOKOWANA DYNAMICZNIE  [1000]x[1001]*
+
+Parametry dla fill delete fill_and_delete find => 1000 999 999 341 
+
+* Tworzenie tablicy *
+Real time: 0.000000, user time: 0.000000, system time: 0.000000
+* Dodawanie kolejnego wiersza tablicy x razy * 
+Real time: 0.010000, user time: 0.010000, system time: 0.000000
+* Usuwanie kolejnego wiersza tablicy x razy * 
+Real time: 0.000000, user time: 0.000000, system time: 0.000000
+* Dodawanie kolejnego wiersza tablicy x razy * 
+Real time: 0.010000, user time: 0.010000, system time: 0.000000
+* Znajdowanie bloku *
+Real time: 0.000000, user time: 0.000000, system time: 0.000000
+* Usuwanie kolejnego wiersza tablicy x razy * 
+Real time: 0.000000, user time: 0.000000, system time: 0.000000
+* Wstawianie i usuwanie x razy * 
+Real time: 0.020000, user time: 0.010000, system time: 0.000000
+
+
+TEST BIBLIOTEKI WSPÓŁDZIELONEJ
+
+* TABLICA ALOKOWANA STATYCZNIE [1000]x[1001] *
+
+Parametry dla fill delete fill_and_delete find => 1000 1000 1000 341 
+
+* Tworzenie tablicy *
+Real time: 0.010000, user time: 0.000000, system time: 0.000000
+* Dodawanie kolejnego wiersza tablicy x razy * 
+Real time: 0.250000, user time: 0.240000, system time: 0.000000
+* Usuwanie kolejnego wiersza tablicy x razy * 
+Real time: 1.930000, user time: 1.840000, system time: 0.000000
+* Dodawanie kolejnego wiersza tablicy x razy * 
+Real time: 0.280000, user time: 0.270000, system time: 0.000000
+* Znajdowanie bloku *
+Real time: 0.000000, user time: 0.000000, system time: 0.000000
+* Usuwanie kolejnego wiersza tablicy x razy * 
+Real time: 0.000000, user time: 0.000000, system time: 0.000000
+* Wstawianie i usuwanie x razy * 
+Real time: 0.480000, user time: 0.470000, system time: 0.000000
+
+* TABLICA ALOKOWANA DYNAMICZNIE  [1000]x[1001]*
+
+Parametry dla fill delete fill_and_delete find => 1000 999 999 341 
+
+* Tworzenie tablicy *
+Real time: 0.000000, user time: 0.000000, system time: 0.000000
+* Dodawanie kolejnego wiersza tablicy x razy * 
+Real time: 0.020000, user time: 0.010000, system time: 0.000000
+* Usuwanie kolejnego wiersza tablicy x razy * 
+Real time: 0.000000, user time: 0.000000, system time: 0.000000
+* Dodawanie kolejnego wiersza tablicy x razy * 
+Real time: 0.020000, user time: 0.010000, system time: 0.000000
+* Znajdowanie bloku *
+Real time: 0.000000, user time: 0.010000, system time: 0.000000
+* Usuwanie kolejnego wiersza tablicy x razy * 
+Real time: 0.000000, user time: 0.000000, system time: 0.000000
+* Wstawianie i usuwanie x razy * 
+Real time: 0.020000, user time: 0.010000, system time: 0.000000
+
+
+TEST BIBLIOTEKI DYNAMICZNEJ
+
+* TABLICA ALOKOWANA STATYCZNIE [1000]x[1001] *
+
+Parametry dla fill delete fill_and_delete find => 1000 1000 1000 341 
+
+* Tworzenie tablicy *
+Real time: 0.010000, user time: 0.000000, system time: 0.000000
+* Dodawanie kolejnego wiersza tablicy x razy * 
+Real time: 0.280000, user time: 0.270000, system time: 0.000000
+* Usuwanie kolejnego wiersza tablicy x razy * 
+Real time: 1.750000, user time: 1.710000, system time: 0.000000
+* Dodawanie kolejnego wiersza tablicy x razy * 
+Real time: 0.210000, user time: 0.200000, system time: 0.000000
+* Znajdowanie bloku *
+Real time: 0.000000, user time: 0.000000, system time: 0.000000
+* Usuwanie kolejnego wiersza tablicy x razy * 
+Real time: 0.000000, user time: 0.000000, system time: 0.000000
+* Wstawianie i usuwanie x razy * 
+Real time: 0.520000, user time: 0.510000, system time: 0.000000
+
+* TABLICA ALOKOWANA DYNAMICZNIE  [1000]x[1001]*
+
+Parametry dla fill delete fill_and_delete find => 1000 999 999 341 
+
+* Tworzenie tablicy *
+Real time: 0.000000, user time: 0.000000, system time: 0.000000
+* Dodawanie kolejnego wiersza tablicy x razy * 
+Real time: 0.010000, user time: 0.010000, system time: 0.000000
+* Usuwanie kolejnego wiersza tablicy x razy * 
+Real time: 0.000000, user time: 0.000000, system time: 0.000000
+* Dodawanie kolejnego wiersza tablicy x razy * 
+Real time: 0.010000, user time: 0.010000, system time: 0.000000
+* Znajdowanie bloku *
+Real time: 0.000000, user time: 0.000000, system time: 0.000000
+* Usuwanie kolejnego wiersza tablicy x razy * 
+Real time: 0.000000, user time: 0.000000, system time: 0.000000
+* Wstawianie i usuwanie x razy * 
+Real time: 0.020000, user time: 0.020000, system time: 0.000000
+
+## Komentarz
+W przypadku tablicy alokowanej statycznie najszybciej program zadziałał przy użyciu biblioteki statycznej. Przy użyciu bibliotek współdzielonej i dynamicznej jedne operacje były szybsze przy użyciu jednej biblioteki a inne przy użyciu drugiej. Np. wstawienie oraz wstawianie i usuwanie uzywajac biblioteki współdzielonej było szybsze niż przy użyciu dynamicznej. Z kolei wstawianie po usunieciu oraz samo usuwanie było szybsze przy użyciu dynamicznej biblioteki.
+
+W przypadku tablicy alokowanej dynamicznie najwolniejsz okazała się biblioteka współdzielona.
+
