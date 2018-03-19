@@ -6,7 +6,58 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h> 
+#include <sys/times.h>
 
+
+
+// zmienne zegarowe
+static clock_t st_time;
+static clock_t en_time;
+static struct tms st_cpu;
+static struct tms en_cpu;
+
+void develop_data(){
+
+    static long int clkTicksPS = 0; // clock ticks per second
+    clkTicksPS = sysconf(_SC_CLK_TCK);
+
+    FILE *plik = fopen("wyniki.txt", "a+");
+    if(!plik){
+        perror("develop_data() - couldn't open file");
+        return;
+    }
+
+    char **info = (char **)calloc(2, sizeof(char*));
+    info[0] = "user time: ";
+    info[1] = " system time: ";
+
+    double measurements[2];
+    measurements[0] = (en_cpu.tms_utime - st_cpu.tms_utime) / (double)clkTicksPS;
+    measurements[1] = (en_cpu.tms_stime - st_cpu.tms_stime) / (double)clkTicksPS;
+
+    for(int i = 0; i < 2; i++){    
+        if(fprintf(plik, "%s", info[i]) < 0 || fprintf(plik, "%f", measurements[i]) < 0){
+            perror("develop_data() - couldn't write to file");
+            return;
+        }
+    }
+
+    if(fclose(plik) == -1){
+        perror("develop_data() - couldn't exit file");
+        return;
+    }
+
+    free(info);   
+}
+
+void st_clock(){
+    st_time = times(&st_cpu);
+}
+
+void en_clock(){
+    en_time = times(&en_cpu);
+    develop_data();
+}
 
 void generate(int argc, char **argv, int *i){
     char *name = argv[*i + 1];
@@ -271,6 +322,8 @@ void copy_sys(int argc, char **argv, int *i){
             return;
         }
     }
+
+    free(buf1);
 }
 
 void copy_lib(int argc, char **argv, int *i){
@@ -311,6 +364,8 @@ void copy_lib(int argc, char **argv, int *i){
             return;
         }
     }
+    
+    free(buf1);
 }
 
 int main(int argc, char ** argv){
@@ -321,20 +376,32 @@ int main(int argc, char ** argv){
         if (strcmp(argv[i], "generate") == 0)
             generate(argc, argv, &i);
         else if (strcmp(argv[i], "sort") == 0){
-            if(strcmp(argv[i + 4], "lib") == 0)
+            if(strcmp(argv[i + 4], "lib") == 0){
+                st_clock();
                 sort_lib(argc, argv, &i);
-            else if(strcmp(argv[i + 4], "sys") == 0)
+                en_clock();
+            }
+            else if(strcmp(argv[i + 4], "sys") == 0){
+                st_clock();
                 sort_sys(argc, argv, &i);
+                en_clock();
+            }
             else {
                 printf("Podano zle argumenty");
                 break;
             };
         }
         else if (strcmp(argv[i], "copy") == 0){         
-            if(strcmp(argv[i + 5], "lib") == 0)
+            if(strcmp(argv[i + 5], "lib") == 0){
+                st_clock();
                 copy_lib(argc, argv, &i);
-            else if(strcmp(argv[i + 5], "sys") == 0)
+                en_clock();
+            }
+            else if(strcmp(argv[i + 5], "sys") == 0){
+                st_clock();
                 copy_sys(argc, argv, &i);
+                en_clock();
+            }
             else {
                 printf("Podano zle argumenty");
                 break;

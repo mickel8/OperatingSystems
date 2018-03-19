@@ -1,0 +1,68 @@
+
+* Test sort_sys dla 1500 x 4 *
+user time: 0.370000 system time: 2.370000
+* Test sort_lib dla 1500 x 4 *
+user time: 0.700000 system time: 3.270000
+* Test copy_sys dla 1500 x 4 *
+user time: 0.000000 system time: 0.000000
+* Test copy_lib dla 1500 x 4 *
+user time: 0.000000 system time: 0.000000
+* Test sort_sys dla 3000 x 4 *
+user time: 1.290000 system time: 8.860000
+* Test sort_lib dla 3000 x 4 *
+user time: 2.460000 system time: 7.000000
+* Test copy_sys dla 3000 x 4 *
+user time: 0.000000 system time: 0.000000
+* Test copy_lib dla 3000 x 4 *
+user time: 0.000000 system time: 0.000000
+* Test sort_sys dla 1500 x 512 *
+user time: 0.250000 system time: 1.450000
+* Test sort_lib dla 1500 x 512 *
+user time: 0.630000 system time: 2.030000
+* Test copy_sys dla 1500 x 512 *
+user time: 0.000000 system time: 0.000000
+* Test copy_lib dla 1500 x 512 *
+user time: 0.000000 system time: 0.000000
+* Test sort_sys dla 3000 x 512 *
+user time: 1.300000 system time: 5.460000
+* Test sort_lib dla 3000 x 512 *
+user time: 2.520000 system time: 7.820000
+* Test copy_sys dla 3000 x 512 *
+user time: 0.000000 system time: 0.000000
+* Test copy_lib dla 3000 x 512 *
+user time: 0.000000 system time: 0.000000
+* Test sort_sys dla 1500 x 4096 *
+user time: 0.310000 system time: 2.210000
+* Test sort_lib dla 1500 x 4096 *
+user time: 0.780000 system time: 3.780000
+* Test copy_sys dla 1500 x 4096 *
+user time: 0.000000 system time: 0.000000
+* Test copy_lib dla 1500 x 4096 *
+user time: 0.000000 system time: 0.000000
+* Test sort_sys dla 3000 x 4096 *
+user time: 1.260000 system time: 8.860000
+* Test sort_lib dla 3000 x 4096 *
+user time: 3.670000 system time: 14.570000
+* Test copy_sys dla 3000 x 4096 *
+user time: 0.000000 system time: 0.010000
+* Test copy_lib dla 3000 x 4096 *
+user time: 0.000000 system time: 0.010000
+* Test sort_sys dla 1500 x 8192 *
+user time: 0.370000 system time: 3.180000
+* Test sort_lib dla 1500 x 8192 *
+user time: 0.910000 system time: 5.070000
+* Test copy_sys dla 1500 x 8192 *
+user time: 0.000000 system time: 0.000000
+* Test copy_lib dla 1500 x 8192 *
+user time: 0.000000 system time: 0.010000
+* Test sort_sys dla 3000 x 8192 *
+user time: 1.220000 system time: 13.130000
+* Test sort_lib dla 3000 x 8192 *
+user time: 3.770000 system time: 20.410000
+* Test copy_sys dla 3000 x 8192 *
+user time: 0.000000 system time: 0.020000
+* Test copy_lib dla 3000 x 8192 *
+user time: 0.000000 system time: 0.010000
+
+## Komentarz 
+Na podstawie powyższych wyników można wywnioskować, że funkcje systemowe są szybsze od bibliotecznych nawet 1,5 raza dla danych 3000 x 8192 co daje ok. 7s różnicy w czasie wykonywania.
