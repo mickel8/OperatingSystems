@@ -23,15 +23,19 @@ void generate(int argc, char **argv, int *i){
     }
 
     char *record = (char *)calloc(size, sizeof(char));
-
+    int writeCounter = 0;
 
     for(int i = 0; i < n; i++){
-        for(int j=0; j < size-1; j++){ // bo na koncu jest \0
+        for(int j=0; j < size-1; j++){ // bo na koncu jest \0 -2 powinno byc
             record[j] = 'A' + (rand() % 26);
         }
         record[size - 2] = '\n';
 
-        fwrite(record, sizeof(char), size, plik);
+        writeCounter = fwrite(record, sizeof(char), size, plik);
+        if(writeCounter != size){
+            printf("generate() - couldn't write all bytes\n");
+            return;
+        }
     }
     fclose(plik);
     free(record);
@@ -48,28 +52,28 @@ void sort_sys(int argc, char **argv, int *i){
     int in;
     in = open(tmpName, O_RDWR|O_CREAT);
     if(in < 0){
-        perror("sort_sys() - nie udało się otworzyć pliku");
+        perror("sort_sys() - couldn't open file");
         return;
     }
 
 
     char *buf1 = (char *)calloc(size, sizeof(char));
     char *buf2 = (char *)calloc(size, sizeof(char));
-    int readCounter = size;
+    int readCounter = 0;
+    int writeCounter = 0;
     int ai;
     int aj;
     int j; // iterator po rekordach do porównywania
     
     for(int i = 1; i < n; i++){
         if(lseek(in, i * size, 0) < 0){
-            perror("sort_sys() - nie udało się zmienić położenia wskaźnika");
+            perror("sort_sys() - couldn't change location of pointer");
             return;
         }
 
         readCounter = read(in, buf1, size);
-       
         if(readCounter != size){ // EOF ?
-            perror("sort_sys() - błąd podczas odczytu danych");
+            printf("sort_sys() - couldn't read all bytes\n");
             return;
         }
 
@@ -80,10 +84,9 @@ void sort_sys(int argc, char **argv, int *i){
             return;
         }
 
-        readCounter = read(in, buf2, size);
-
+        readCounter = read(in, buf2, size);\
         if(readCounter != size){
-            perror("sort_sys() - błąd podczas odczytu danych");
+            printf("sort_sys() - couldn't read all bytes\n");
             return;
         }
 
@@ -92,27 +95,35 @@ void sort_sys(int argc, char **argv, int *i){
 
         while(j >= 0 && aj > ai){
             
-            write(in, buf2, size);
+            writeCounter = write(in, buf2, size);
+            if(writeCounter != size){
+                printf("sort_sys() - couldn't write all bytes\n");
+                return;
+            }
 
             if(lseek(in, j*size, 0) < 0){
-                perror("sort_sys() - nie udalo sie zmienic polozenia wskaznika");
+                perror("sort_sys() - couldn't change location of pointer");
                 return;
             }
             
-            write(in, buf1, size);
+            writeCounter = write(in, buf1, size);
+            if(writeCounter != size){
+                printf("sort_sys() - couldn't write all bytes\n");
+                return;
+            }
 
             j = j - 1;
             if(j >= 0){
 
                 if(lseek(in, j * size, 0) < 0){
-                    perror("sort_sys() - nie udalo sie zmienic polozenia wskaznika");
+                    perror("sort_sys() - couldn't change location of pointer");
                     return;
                 }
 
                 readCounter = read(in, buf2, size);
 
                 if(readCounter != size){
-                    perror("sort_sys() - błąd podczas odczytu danych");
+                    printf("sort_sys() - couldn't read all bytes\n");
                     return;
                 }
 
@@ -142,7 +153,8 @@ void sort_lib(int argc, char **argv, int *i){
 
     char *buf1 = (char *)calloc(size, sizeof(char));
     char *buf2 = (char *)calloc(size, sizeof(char));
-    int readCounter = size;
+    int readCounter = 0;
+    int writeCounter = 0;
     int ai;
     int aj;
     int j; // iterator po rekordach do porównywania
@@ -150,28 +162,26 @@ void sort_lib(int argc, char **argv, int *i){
     for(int i = 1; i < n; i++){ // zaczynam od 2 rekordu w tablicy i przechodzy po wszystkich
         
         if(fseek(plik, i * size, 0) != 0){
-            perror("sort_lib() - nie udalo sie zmienic polozenia wskaznika");
+            perror("sort_lib() - couldn't change location of pointer");
             return;
         }
 
         readCounter = fread(buf1, sizeof(char), size, plik);
-
         if(readCounter != size){ // EOF ?
-            perror("sort_lib() - błąd podczas odczytu danych");
+            printf("sort_lib() - couldn't write all bytes\n");
             return;
         }
 
         j = i - 1;
 
         if(fseek(plik, j * size, 0) != 0){
-            perror("sort_lib() - nie udalo sie zmienic polozenia wskaznika");
+            perror("sort_lib() - couldn't change location of pointer");
             return;
         }
 
         readCounter = fread(buf2, sizeof(char), size, plik);
-        printf("%d\n", readCounter);
         if(readCounter != size){
-            perror("sort_lib() - błąd podczas odczytu danych");
+            printf("sort_lib() - coulnd't read all bytes\n");
             return;
         }
 
@@ -180,27 +190,34 @@ void sort_lib(int argc, char **argv, int *i){
 
         while(j >= 0 && aj > ai){
             
-            fwrite(buf2, sizeof(char), size, plik);
+            writeCounter = fwrite(buf2, sizeof(char), size, plik);
+            if(writeCounter != size){ // EOF ?
+                printf("copy_lib() - couldn't write all bytes\n");
+                return;
+            }
 
             if(fseek(plik, j*size, 0) != 0){
-                perror("sort_lib() - nie udalo sie zmienic polozenia wskaznika");
+                perror("sort_lib() - couldn't change location of pointer");
                 return;
             }
             
-            fwrite(buf1, sizeof(char), size, plik);
+            writeCounter = fwrite(buf1, sizeof(char), size, plik);
+            if(writeCounter != size){ // EOF ?
+                printf("copy_lib() - couldn't write all bytes\n");
+                return;
+            }
 
             j = j - 1;
             if(j >= 0){
 
                 if(fseek(plik, j * size, 0) != 0){
-                    perror("sort_lib() - nie udalo sie zmienic polozenia wskaznika");
+                    perror("sort_lib() - couldn't change location of pointer");
                     return;
                 }
 
                 readCounter = fread(buf2, sizeof(char), size, plik);
-
                 if(readCounter != size){
-                    perror("sort_lib() - błąd podczas odczytu danych");
+                    printf("sort_lib() - couldn't read all bytes\n");
                     return;
                 }
 
@@ -243,15 +260,14 @@ void copy_sys(int argc, char **argv, int *i){
     for(int i = 0; i < n; i++){
 
         readCounter = read(in, buf1, size);
-        
         if(readCounter != size){ // EOF ?
-            perror("copy_lib() - couldn't read all bytes");
+            printf("copy_lib() - couldn't read all bytes\n");
             return;
         }
 
         writeCounter = write(out, buf1, size);
         if(writeCounter != size){ // EOF ?
-            perror("copy_lib() - couldn't write all bytes");
+            printf("copy_lib() - couldn't write all bytes\n");
             return;
         }
     }
@@ -267,14 +283,12 @@ void copy_lib(int argc, char **argv, int *i){
     *i += 5;
 
     FILE *plik1 = fopen(name1, "r");
-
     if(!plik1){
         perror("copy_lib() - file doesn't exist");
         return;
     }
     
     FILE *plik2 = fopen(name2, "w");
-
     if(!plik2){
         perror("copy_lib() - couldn't create file");
         return;
@@ -286,15 +300,14 @@ void copy_lib(int argc, char **argv, int *i){
     for(int i = 0; i < n; i++){
 
         readCounter = fread(buf1, sizeof(char), size, plik1);
-        
         if(readCounter != size){ // EOF ?
-            perror("copy_lib() - couldn't read all bytes");
+            printf("copy_lib() - couldn't read all bytes\n");
             return;
         }
 
         writeCounter = fwrite(buf1, sizeof(char), size, plik2);
         if(writeCounter != size){ // EOF ?
-            perror("copy_lib() - couldn't write all bytes");
+            printf("copy_lib() - couldn't write all bytes\n");
             return;
         }
     }
