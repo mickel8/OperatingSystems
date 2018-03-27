@@ -1,0 +1,4 @@
+ls -all
+HelloWorld
+mkdir newFolder2
+ls -all

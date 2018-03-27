@@ -1,0 +1,4 @@
+ls -all
+HelloWorld.c
+mkdir newFolder2
+ls -all
