@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
@@ -14,6 +15,8 @@
 static char *homedir;
 static int clQueueID;
 static int srQueueID;
+static int clientID;
+static pid_t pid;
 static key_t clKey;
 
 
@@ -122,8 +125,8 @@ void send_clQueueKey_to_server()
 {
     int res;
     
-    struct queueKeyMessage message;
-    message.mType = CL_QUEUEID;
+    struct ClientMessage message;
+    message.mType = CL_QUEUEKEY;
     message.qKey = clKey;
 
     res = msgsnd(srQueueID, &message, sizeof(message) - sizeof(long), IPC_NOWAIT);
@@ -134,10 +137,34 @@ void send_clQueueKey_to_server()
     }
 }
 
+// Send stop signal to server
+void send_stop_signal_to_server()
+{
+    int res;
+    
+    struct ClientMessage message;
+    message.mType = CL_CLIENTSTP;
+    message.clientID = clientID;
+    message.pid = pid;
+
+    res = msgsnd(srQueueID, &message, sizeof(message) - sizeof(long), IPC_NOWAIT);
+    if(res == -1)
+    {
+        perror("send_clQueueKey_to_server() -> msgsnd()");
+        exit(EXIT_FAILURE);
+    }
+    else
+    {
+        printf("sent stop signal to server, my pid: %d, my client ID: %d\n", pid, clientID);
+    }   
+}
+
 // Behaviour specified in case of receiving SIGINT signal
 void sigint_handler()
 {
+    send_stop_signal_to_server();
     delete_queue();
+    exit(EXIT_SUCCESS);
 }
 
 
@@ -162,14 +189,37 @@ void notify_sigint_handling()
 
 }
 
+// Receive message queue ID given by server
+int receive_queueID_given_by_server()
+{
+    struct clientIDMessage message;
+    if(msgrcv(clQueueID, &message, sizeof(message) - sizeof(long), SR_CLIENTID, IPC_NOWAIT) == -1)
+    {
+        if(errno != ENOMSG)
+        {
+            perror("recive_clQueueID_from_client() -> msgrcv()");
+            exit(EXIT_FAILURE);
+        }
+        else
+        {
+            return -1;
+        }
+    }
+
+    clientID = message.clientID;
+    printf("My client ID: %d\n", clientID);
+    return 0;
+}
 
 int main(int argc, char **argv)
 {
-    // if(atexit(delete_queue) != 0)
-    // {
-    //     perror("main() -> atexit()");
-    //     exit(EXIT_FAILURE);
-    // }
+    if(atexit(delete_queue) != 0)
+    {
+        perror("main() -> atexit()");
+        exit(EXIT_FAILURE);
+    }
+    
+    pid = getpid();
 
     notify_sigint_handling();
     assign_homedir_env();
@@ -177,10 +227,13 @@ int main(int argc, char **argv)
     open_server_queue();
     send_clQueueKey_to_server();
     
-    while(1)
+    while(receive_queueID_given_by_server() == -1);
     {
-        
     }
     
+    while(1)
+    {
+
+    }
     return 0;
 }
