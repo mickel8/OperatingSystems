@@ -1,0 +1,7 @@
+MIRROR "Ala ma kota"
+CALC 2+3
+CALC 5-4
+CALC 3*4
+CALC 4/3
+TIME
+END
