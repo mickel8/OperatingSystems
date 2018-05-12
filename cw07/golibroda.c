@@ -2,10 +2,14 @@
 
 #include "utils.h"
 
+#define shmVarNMB 3
+
 static char     *ptr_p;    // pointer in shm for pathname for ftok()
 static int      *ptr_f;    // pointer in shm for fifo queue id
 static pid_t    *ptr_pid;  // pointer in shm for pid of golibroda
 
+static int shmids[shmVarNMB];
+static int shmidCounter = 0;
 static int queueID;
 
 // set shared memory core
@@ -41,7 +45,7 @@ int set_shm(char **argv, int size, char keyChar)
 }
 
 // set shared memory for pathname required in ftok()
-void set_shm_for_pathname(char **argv)
+int set_shm_for_pathname(char **argv)
 {
     int shmid_p;
     char *tmp_ptr_p;
@@ -57,10 +61,12 @@ void set_shm_for_pathname(char **argv)
 
     tmp_ptr_p = ptr_p;
     strcpy(tmp_ptr_p, argv[0]);
+
+    return shmid_p;
 }
 
 // set shared memory for fifo queue id
-void set_shm_for_queueID(char **argv)
+int set_shm_for_queueID(char **argv)
 {
     int shmid_f;
 
@@ -75,9 +81,10 @@ void set_shm_for_queueID(char **argv)
 
     *ptr_f = queueID;
 
+    return shmid_f;
 }
 
-void set_shm_for_pid(char **argv)
+int set_shm_for_pid(char **argv)
 {
     int shmid_pid;
 
@@ -92,20 +99,24 @@ void set_shm_for_pid(char **argv)
 
     *ptr_pid = getpid();
 
+    return shmid_pid;
 }
 
 // sets shared memory for necessery variables
 void set_shm_for_variables(char **argv)
 {
-    set_shm_for_pathname(argv);
-    set_shm_for_queueID(argv);
-    set_shm_for_pid(argv);
+    shmids[shmidCounter] = set_shm_for_pathname(argv);
+    shmidCounter++;
+    shmids[shmidCounter] = set_shm_for_queueID(argv);
+    shmidCounter++;
+    shmids[shmidCounter] = set_shm_for_pid(argv);
+    shmidCounter++;
 }
 
 // handler for SIGTERM signal
 void SIGTERM_handler()
 {
-    printf("Otrzymałem sygnał SIGTERM, kończę pracę na dziś\n");
+    printf("Otrzymałem sygnał SIGTERM, sprzatam zakład i kończę pracę na dziś\n");
     exit(EXIT_SUCCESS);
 }
 
@@ -200,13 +211,47 @@ void delete_queue()
         perror("delete_queue -> msgctl");
         exit(EXIT_FAILURE);
     }
-    else
-    {
-        printf("Sprzątam zakład - usuwam kolejkę\n");
-    }
+
 }
 
+void clean_shm()
+{
+    int res;
 
+    res = shmdt(ptr_f);
+    if(res == -1)
+    {
+        perror("clean_shm -> shmdt(ptr_f)");
+    }
+
+    res = shmdt(ptr_p);
+    if(res == -1)
+    {
+        perror("clean_shm -> shmdt(ptr_p)");
+    }
+
+    res = shmdt(ptr_pid);
+    if(res == -1)
+    {
+        perror("clean_shm -> shmdt(ptr_pid)");
+    }
+
+    for (int i = 0; i < shmVarNMB; i++)
+    {
+        res = shmctl(shmids[i], IPC_RMID, NULL);
+        if(res == -1)
+        {
+            perror("clean_shm -> shmctl");
+        }
+    }
+
+}
+
+void clean_workplace()
+{
+    delete_queue();
+    clean_shm();
+}
 
 
 int main(int argc, char **argv)
@@ -218,7 +263,7 @@ int main(int argc, char **argv)
 
     create_queue(argv);
 
-    res = atexit(delete_queue);
+    res = atexit(clean_workplace);
     if(res != 0)
     {
         perror("main -> atexit");

@@ -24,20 +24,40 @@ void get_pathname()
         exit(EXIT_FAILURE);
     }
 
-    printf("Pathname: %s\n", ptr_p);
+}
+
+void clean_workplace()
+{
+    int res;
+
+    res = shmdt(ptr_p);
+    if(res == -1)
+    {
+        perror("clean_shm -> shmdt(ptr_p)");
+    }
 
 }
 
 
 int main(int argc, char **argv)
 {
+    int res;
 
     int pid = getpid();
     int nmbOfHaircut = atoi(argv[1]);
 
+    printf("Client number %d was created\n", pid);
+
     get_pathname();
 
+    res = atexit(clean_workplace);
+    if(res != 0)
+    {
+        perror("main -> atexit");
+        exit(EXIT_FAILURE);
+    }
 
-    
+
+
     return 0;
 }

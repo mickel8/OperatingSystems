@@ -78,7 +78,23 @@ void get_pid()
 
 }
 
+void clean_workplace()
+{
+    int res;
 
+    res = shmdt(ptr_p);
+    if(res == -1)
+    {
+        perror("clean_shm -> shmdt(ptr_p)");
+    }
+
+    res = shmdt(ptr_pid);
+    if(res == -1)
+    {
+        perror("clean_shm -> shmdt(ptr_pid)");
+    }
+
+}
 
 int main(int argc, char **argv)
 {
@@ -129,6 +145,13 @@ int main(int argc, char **argv)
 
     get_pid();
 
+    res = atexit(clean_workplace);
+    if(res != 0)
+    {
+        perror("main -> atexit");
+        exit(EXIT_FAILURE);
+    }
+
     sleep(2);
 
     int status;
@@ -139,7 +162,7 @@ int main(int argc, char **argv)
         {
             perror("main -> waitpid");
         }
-        printf("%d\n", res);
+        printf("Client %d has new haircut\n", res);
     }
 
     res = kill(*ptr_pid, SIGTERM);
