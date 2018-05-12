@@ -1,0 +1,3 @@
+ps aux | grep mike | grep /usr/lib | grep 0.0 | grep 4882 
+cat wynik.txt | grep ma | grep kota | grep ala | grep mysz
+HelloWorld | grep Hello
