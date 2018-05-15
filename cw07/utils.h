@@ -36,6 +36,12 @@
 #define THE_ONLY_ONE 0
 #define FROM_QUEUE 1
 
+#define GRN   "\x1B[32m"
+#define RES   "\x1B[0m"
+#define RED   "\x1B[31m"
+#define BLU    "\e[44m"
+
+
 union semun {
     int              val;    /* Value for SETVAL */
     struct semid_ds *buf;    /* Buffer for IPC_STAT, IPC_SET */

@@ -21,6 +21,9 @@ static int queueID;
 static int queueID_client;
 static int semID;
 
+static long sec;
+static long msec;
+
 static struct msgp buf;
 static struct timespec time_info;
 static struct sembuf sembuf_tab[1];
@@ -37,10 +40,13 @@ void time_point()
         perror("time_point -> clock_gettime");
         exit(EXIT_FAILURE);
     }
+
+    sec  = time_info.tv_sec/60;
+    msec = time_info.tv_nsec/1000;
 }
 
 
-// set shared memory core
+// set shaGRN memory core
 int set_shm(char **argv, int size, char keyChar)
 {
     int shmid;
@@ -57,7 +63,7 @@ int set_shm(char **argv, int size, char keyChar)
 
     if(key == -1)
     {
-        perror("set_shared_pathname -> ftok");
+        perror("set_shaGRN_pathname -> ftok");
         exit(EXIT_FAILURE);
     }
 
@@ -65,14 +71,14 @@ int set_shm(char **argv, int size, char keyChar)
     shmid = shmget(key, size, S_IRWXU | IPC_CREAT);
     if(shmid == -1)
     {
-        perror("set_shared_pathname -> shmget");
+        perror("set_shaGRN_pathname -> shmget");
         exit(EXIT_FAILURE);
     }
 
     return shmid;
 }
 
-// set shared memory for pathname required in ftok()
+// set shaGRN memory for pathname requiGRN in ftok()
 int set_shm_for_pathname(char **argv)
 {
     int shmid_p;
@@ -93,7 +99,7 @@ int set_shm_for_pathname(char **argv)
     return shmid_p;
 }
 
-// set shared memory for fifo queue id
+// set shaGRN memory for fifo queue id
 int set_shm_for_queueID(char **argv)
 {
     int shmid_f;
@@ -112,7 +118,7 @@ int set_shm_for_queueID(char **argv)
     return shmid_f;
 }
 
-// set shared memory for fifo queue id client
+// set shaGRN memory for fifo queue id client
 int set_shm_for_queueID_client(char **argv)
 {
     int shmid_f;
@@ -257,7 +263,7 @@ int set_shm_for_semID(char **argv)
     return shmid_s;
 }
 
-// sets shared memory for necessery variables
+// sets shaGRN memory for necessery variables
 void set_shm_for_variables(char **argv)
 {
     shmids[shmidCounter] = set_shm_for_pathname(argv);
@@ -617,7 +623,7 @@ void invite_client(int who)
     int clientID = buf.pid;
 
     time_point();
-    printf("Zaproszenie klienta: %d [%ld:%ld]\n", clientID, time_info.tv_sec/60, time_info.tv_nsec/1000);
+    printf(RED "Zaproszenie klienta: " RES BLU "%d" RES GRN " [%ld:%ld]\n" RES, clientID, sec, msec);
     *ptr_queueLen = *ptr_queueLen - 1;
 
     *ptr_invitedID = clientID;
@@ -633,9 +639,9 @@ void cut()
     int clientID = buf.pid;
 
     time_point();
-    printf("Ropoczęcie strzyżenia klienta: %d [%ld:%ld]\n", clientID, time_info.tv_sec/60, time_info.tv_nsec/1000);
+    printf("Ropoczęcie strzyżenia klienta: %d" GRN " [%ld:%ld]\n" RES, clientID, sec, msec);
     time_point();
-    printf("Zakończenie strzyżenia klienta: %d [%ld:%ld]\n", clientID, time_info.tv_sec/60, time_info.tv_nsec/1000);
+    printf("Zakończenie strzyżenia klienta: %d" GRN " [%ld:%ld]\n" RES, clientID, sec, msec);
 
     give_semaphore(SEM_C);
 
@@ -648,14 +654,14 @@ void cut()
 void fall_asleep()
 {
     time_point();
-    printf("Zaśnięcie Golibrody [%ld:%ld]\n", time_info.tv_sec/60, time_info.tv_nsec/1000);
+    printf("Zaśnięcie Golibrody" GRN " [%ld:%ld]\n" RES, sec, msec);
     *ptr_dream = 1;
 
     give_semaphore(SEM_Q);
     take_semaphore(SEM_FAS);
 
     time_point();
-    printf("Obudzenie Golibrody [%ld:%ld]\n", time_info.tv_sec/60, time_info.tv_nsec/1000);
+    printf("Obudzenie Golibrody" GRN " [%ld:%ld]\n" RES, sec, msec);
 
     while(*ptr_ifOnChair == 0)
     {
@@ -663,9 +669,9 @@ void fall_asleep()
     }
 
     time_point();
-    printf("Ropoczęcie strzyżenia klienta: %d [%ld:%ld]\n", *ptr_invitedID, time_info.tv_sec/60, time_info.tv_nsec/1000);
+    printf("Ropoczęcie strzyżenia klienta: " BLU "%d" RES GRN " [%ld:%ld]\n" RES, *ptr_invitedID, sec, msec);
     time_point();
-    printf("Zakończenie strzyżenia klienta: %d [%ld:%ld]\n", *ptr_invitedID, time_info.tv_sec/60, time_info.tv_nsec/1000);
+    printf("Zakończenie strzyżenia klienta: " BLU "%d" RES GRN " [%ld:%ld]\n" RES, *ptr_invitedID, sec, msec);
 
     give_semaphore(SEM_C);
 
