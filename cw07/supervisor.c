@@ -162,7 +162,7 @@ int main(int argc, char **argv)
         {
             perror("main -> waitpid");
         }
-        printf("Client %d has new haircut\n", res);
+        //printf("Client %d has new haircut\n", res);
     }
 
     res = kill(*ptr_pid, SIGTERM);

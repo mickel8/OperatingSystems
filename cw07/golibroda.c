@@ -2,15 +2,43 @@
 
 #include "utils.h"
 
-#define shmVarNMB 3
+#define shmVarNMB 10
 
-static char     *ptr_p;    // pointer in shm for pathname for ftok()
-static int      *ptr_f;    // pointer in shm for fifo queue id
-static pid_t    *ptr_pid;  // pointer in shm for pid of golibroda
+static char     *ptr_p;          // pointer in shm for pathname for ftok()
+static int      *ptr_f;          // pointer in shm for fifo queue id client -> golibroda
+static int      *ptr_f_client;    // pointer in shm for fifo queue id golibroda -> client
+static pid_t    *ptr_pid;        // pointer in shm for pid of golibroda
+static int      *ptr_chairs;     // pointer in shm for number of chairs
+static int      *ptr_dream;      // pointer in shm for checking dream
+static int      *ptr_queueLen;   // pointer in shm for lenght of queue
+static int      *ptr_semID;      // pointer in shm for sem id
+static int      *ptr_invitedID;   // pointer in shm for invited client ID
+static int      *ptr_ifOnChair;  // pointer in shm with inf. that invited client is on chair or not
 
 static int shmids[shmVarNMB];
 static int shmidCounter = 0;
 static int queueID;
+static int queueID_client;
+static int semID;
+
+static struct msgp buf;
+static struct timespec time_info;
+static struct sembuf sembuf_tab[1];
+
+
+void time_point()
+{
+    int res;
+
+    res = clock_gettime(CLOCK_MONOTONIC, &time_info );
+
+    if(res == -1)
+    {
+        perror("time_point -> clock_gettime");
+        exit(EXIT_FAILURE);
+    }
+}
+
 
 // set shared memory core
 int set_shm(char **argv, int size, char keyChar)
@@ -84,6 +112,25 @@ int set_shm_for_queueID(char **argv)
     return shmid_f;
 }
 
+// set shared memory for fifo queue id client
+int set_shm_for_queueID_client(char **argv)
+{
+    int shmid_f;
+
+    shmid_f = set_shm(argv, sizeof(int), QUEUE_CLIENT_PROJ_ID);
+
+    ptr_f_client = shmat(shmid_f, NULL, 0);
+    if(ptr_f_client == (int *)-1)
+    {
+        perror("set_shm_for_queueID_client -> shmat");
+        exit(EXIT_FAILURE);
+    }
+
+    *ptr_f_client = queueID_client;
+    printf("%d\n", *ptr_f_client);
+    return shmid_f;
+}
+
 int set_shm_for_pid(char **argv)
 {
     int shmid_pid;
@@ -102,6 +149,114 @@ int set_shm_for_pid(char **argv)
     return shmid_pid;
 }
 
+int set_shm_for_chairs(char **argv)
+{
+    int shmid_c;
+
+    shmid_c = set_shm(argv, sizeof(int), CHAIRS_PROJ_ID);
+
+    ptr_chairs = shmat(shmid_c, NULL, 0);
+    if(ptr_chairs == (int *)-1)
+    {
+        perror("set_shm_for_fifo -> shmat");
+        exit(EXIT_FAILURE);
+    }
+
+    *ptr_chairs = atoi(argv[1]);
+
+    return shmid_c;
+}
+
+int set_shm_for_invitedID(char **argv)
+{
+    int shmid;
+
+    shmid = set_shm(argv, sizeof(int), INVITEDID_PROJ_ID);
+
+    ptr_invitedID = shmat(shmid, NULL, 0);
+    if(ptr_invitedID == (int *)-1)
+    {
+        perror("set_shm_for_invitedID -> shmat");
+        exit(EXIT_FAILURE);
+    }
+
+    *ptr_invitedID = 0;
+
+    return shmid;
+}
+
+int set_shm_for_ifOnChair(char **argv)
+{
+    int shmid;
+
+    shmid = set_shm(argv, sizeof(int), IFONCHAR_PROJ_ID);
+
+    ptr_ifOnChair = shmat(shmid, NULL, 0);
+    if(ptr_ifOnChair == (int *)-1)
+    {
+        perror("set_shm_for_ifOnChair -> shmat");
+        exit(EXIT_FAILURE);
+    }
+
+    *ptr_ifOnChair = 0;
+
+    return shmid;
+}
+
+int set_shm_for_dream(char **argv)
+{
+    int shmid_d;
+
+    shmid_d = set_shm(argv, sizeof(int), DREAM_PROJ_ID);
+
+    ptr_dream = shmat(shmid_d, NULL, 0);
+    if(ptr_dream == (int *)-1)
+    {
+        perror("set_shm_for_fifo -> shmat");
+        exit(EXIT_FAILURE);
+    }
+
+    *ptr_dream = 1;
+
+    return shmid_d;
+}
+
+int set_shm_for_queueLen(char **argv)
+{
+    int shmid_q;
+
+    shmid_q = set_shm(argv, sizeof(int), QUEUELEN_PROJ_ID);
+
+    ptr_queueLen = shmat(shmid_q, NULL, 0);
+    if(ptr_queueLen == (int *)-1)
+    {
+        perror("set_shm_for_queueLen -> shmat");
+        exit(EXIT_FAILURE);
+    }
+
+    *ptr_queueLen = 0;
+
+    return shmid_q;
+}
+
+int set_shm_for_semID(char **argv)
+{
+    int shmid_s;
+
+    shmid_s = set_shm(argv, sizeof(int), SEMID_PROJ_ID);
+
+    ptr_semID = shmat(shmid_s, NULL, 0);
+    if(ptr_semID == (int *)-1)
+    {
+        perror("set_shm_for_semID -> shmat");
+        exit(EXIT_FAILURE);
+    }
+
+    *ptr_semID = semID;
+
+    return shmid_s;
+}
+
 // sets shared memory for necessery variables
 void set_shm_for_variables(char **argv)
 {
@@ -110,6 +265,20 @@ void set_shm_for_variables(char **argv)
     shmids[shmidCounter] = set_shm_for_queueID(argv);
     shmidCounter++;
     shmids[shmidCounter] = set_shm_for_pid(argv);
+    shmidCounter++;
+    shmids[shmidCounter] = set_shm_for_dream(argv);
+    shmidCounter++;
+    shmids[shmidCounter] = set_shm_for_chairs(argv);
+    shmidCounter++;
+    shmids[shmidCounter] = set_shm_for_queueLen(argv);
+    shmidCounter++;
+    shmids[shmidCounter] = set_shm_for_queueID_client(argv);
+    shmidCounter++;
+    shmids[shmidCounter] = set_shm_for_semID(argv);
+    shmidCounter++;
+    shmids[shmidCounter] = set_shm_for_ifOnChair(argv);
+    shmidCounter++;
+    shmids[shmidCounter] = set_shm_for_invitedID(argv);
     shmidCounter++;
 }
 
@@ -214,6 +383,45 @@ void delete_queue()
 
 }
 
+void create_queue_client(char **argv)
+{
+    int res;
+    key_t key;
+
+    key = ftok(argv[0], QUEUE_CLIENT_PROJ_ID);
+    if(key == -1)
+    {
+        perror("create_queue_client -> ftok");
+        exit(EXIT_FAILURE);
+    }
+
+    res = msgget(key, IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
+    if(res == -1)
+    {
+        perror("create_queue_client -> msgget");
+        exit(EXIT_FAILURE);
+    }
+    else
+    {
+        queueID_client = res;
+    }
+
+}
+
+// deletes clients queue
+void delete_queue_client()
+{
+    int res;
+
+    res = msgctl(queueID_client, IPC_RMID, NULL);
+    if(res == -1)
+    {
+        perror("delete_queue_client -> msgctl");
+        exit(EXIT_FAILURE);
+    }
+
+}
+
 void clean_shm()
 {
     int res;
@@ -236,6 +444,18 @@ void clean_shm()
         perror("clean_shm -> shmdt(ptr_pid)");
     }
 
+    res = shmdt(ptr_dream);
+    if(res == -1)
+    {
+        perror("clean_shm -> shmdt(ptr_pid)");
+    }
+
+    res = shmdt(ptr_chairs);
+    if(res == -1)
+    {
+        perror("clean_shm -> shmdt(ptr_pid)");
+    }
+
     for (int i = 0; i < shmVarNMB; i++)
     {
         res = shmctl(shmids[i], IPC_RMID, NULL);
@@ -250,18 +470,223 @@ void clean_shm()
 void clean_workplace()
 {
     delete_queue();
+    delete_queue_client();
     clean_shm();
+}
+
+void take_from_queue()
+{
+    int res;
+
+    res = msgrcv(*ptr_f, &buf, sizeof(buf) - sizeof(long), 0, IPC_NOWAIT);
+    if(res == -1)
+    {
+        perror("take_from_queue -> msgrcv");
+        exit(EXIT_FAILURE);
+    }
+}
+
+void send_signal_for_client(int clientID)
+{
+    int res;
+
+    buf.mtype = clientID;
+
+    res = msgsnd(*ptr_f_client, &buf, sizeof(buf) - sizeof(long), IPC_NOWAIT);
+    if(res == -1)
+    {
+        perror("wait_in_queue -> msgsnd");
+        exit(EXIT_FAILURE);
+    }
+
+}
+
+void create_semaphore(char **argv)
+{
+    key_t key = ftok(argv[0], SEM_PROJ_ID);
+    if(key == -1)
+    {
+        perror("create_semaphore -> ftok");
+        exit(EXIT_FAILURE);
+    }
+
+    semID = semget(key, SEM_NMB, S_IRUSR | S_IWUSR | IPC_CREAT);
+    if(semID < 0)
+    {
+        perror("create_semaphore -> semget");
+        exit(EXIT_FAILURE);
+    }
+
+    int res;
+    union semun arg;
+
+    arg.val = 0;
+    res = semctl(semID, 0, SETVAL, arg);
+    if(res == -1)
+    {
+        perror("create_semaphore -> semctl");
+        exit(EXIT_FAILURE);
+    }
+
+    arg.val = 1;
+    res = semctl(semID, 1, SETVAL, arg);
+    if(res == -1)
+    {
+        perror("create_semaphore -> semctl");
+        exit(EXIT_FAILURE);
+    }
+
+    arg.val = 1;
+    res = semctl(semID, 2, SETVAL, arg);
+    if(res == -1)
+    {
+        perror("create_semaphore -> semctl");
+        exit(EXIT_FAILURE);
+    }
+
+    arg.val = 0;
+    res = semctl(semID, 3, SETVAL, arg);
+    if(res == -1)
+    {
+        perror("create_semaphore -> semctl");
+        exit(EXIT_FAILURE);
+    }
+
+}
+
+void take_semaphore(int sem)
+{
+    int res;
+
+    sembuf_tab[0].sem_op = -1;
+    sembuf_tab[0].sem_num = sem;
+    sembuf_tab[0].sem_flg = 0;
+
+    res = semop(*ptr_semID, sembuf_tab, 1);
+    if(res == -1)
+    {
+        perror("take_semaphore -> semop");
+        exit(EXIT_FAILURE);
+    }
+}
+
+void give_semaphore(int sem)
+{
+    int res;
+
+    sembuf_tab[0].sem_op = 1;
+    sembuf_tab[0].sem_num = sem;
+    sembuf_tab[0].sem_flg = 0;
+
+    res = semop(*ptr_semID, sembuf_tab, 1);
+    if(res == -1)
+    {
+        perror("give_semaphore -> semop");
+        exit(EXIT_FAILURE);
+    }
+}
+
+int check_queue()
+{
+
+
+    int res;
+    struct msqid_ds buf;
+    msgqnum_t msg_qnum;
+
+    res = msgctl(queueID, IPC_STAT, &buf);
+
+    if(res == -1)
+    {
+        perror("check_queue -> msgctl");
+        exit(EXIT_FAILURE);
+    }
+
+    msg_qnum = buf.msg_qnum;
+
+    if(msg_qnum > 0) return 0;
+    else return -1;
+
+
+}
+
+void invite_client(int who)
+{
+
+    take_from_queue();
+    int clientID = buf.pid;
+
+    time_point();
+    printf("Zaproszenie klienta: %d [%ld:%ld]\n", clientID, time_info.tv_sec/60, time_info.tv_nsec/1000);
+    *ptr_queueLen = *ptr_queueLen - 1;
+
+    *ptr_invitedID = clientID;
+    while(*ptr_ifOnChair != clientID)
+    {
+
+    }
+
+}
+
+void cut()
+{
+    int clientID = buf.pid;
+
+    time_point();
+    printf("Ropoczęcie strzyżenia klienta: %d [%ld:%ld]\n", clientID, time_info.tv_sec/60, time_info.tv_nsec/1000);
+    time_point();
+    printf("Zakończenie strzyżenia klienta: %d [%ld:%ld]\n", clientID, time_info.tv_sec/60, time_info.tv_nsec/1000);
+
+    give_semaphore(SEM_C);
+
+    while(*ptr_ifOnChair != 0)
+    {
+
+    }
+}
+
+void fall_asleep()
+{
+    time_point();
+    printf("Zaśnięcie Golibrody [%ld:%ld]\n", time_info.tv_sec/60, time_info.tv_nsec/1000);
+    *ptr_dream = 1;
+
+    give_semaphore(SEM_Q);
+    take_semaphore(SEM_FAS);
+
+    time_point();
+    printf("Obudzenie Golibrody [%ld:%ld]\n", time_info.tv_sec/60, time_info.tv_nsec/1000);
+
+    while(*ptr_ifOnChair == 0)
+    {
+
+    }
+
+    time_point();
+    printf("Ropoczęcie strzyżenia klienta: %d [%ld:%ld]\n", *ptr_invitedID, time_info.tv_sec/60, time_info.tv_nsec/1000);
+    time_point();
+    printf("Zakończenie strzyżenia klienta: %d [%ld:%ld]\n", *ptr_invitedID, time_info.tv_sec/60, time_info.tv_nsec/1000);
+
+    give_semaphore(SEM_C);
+
 }
 
 
 int main(int argc, char **argv)
 {
 
-    int res;
+    if(argc != 2)
+    {
+        printf("Bad number of arguments\n");
+        exit(EXIT_FAILURE);
+    }
 
     printf("My pid is: %d\n", getpid());
 
+    int res;
+
     create_queue(argv);
+    create_queue_client(argv);
 
     res = atexit(clean_workplace);
     if(res != 0)
@@ -274,11 +699,25 @@ int main(int argc, char **argv)
 
     //block_signals();
     handle_SIGTERM_signal();
+    create_semaphore(argv);
     set_shm_for_variables(argv);
 
 
     while(1)
     {
+        take_semaphore(SEM_Q);
+        res = check_queue();
+        switch(res)
+        {
+            case -1:
+                fall_asleep();
+                break;
+            case 0:
+                invite_client(FROM_QUEUE);
+                give_semaphore(SEM_Q);
+                cut();
+                break;
+        }
 
     }
 
