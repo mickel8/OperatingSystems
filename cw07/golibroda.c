@@ -595,6 +595,7 @@ void give_semaphore(int sem)
 int check_queue()
 {
 
+    take_semaphore(SEM_Q);
 
     int res;
     struct msqid_ds buf;
@@ -624,13 +625,17 @@ void invite_client(int who)
 
     time_point();
     printf(RED "Zaproszenie klienta: " RES BLU "%d" RES GRN " [%ld:%ld]\n" RES, clientID, sec, msec);
-    *ptr_queueLen = *ptr_queueLen - 1;
-
     *ptr_invitedID = clientID;
+
+    // wait until client is in chair
     while(*ptr_ifOnChair != clientID)
     {
 
     }
+
+    *ptr_queueLen = *ptr_queueLen - 1;
+
+    give_semaphore(SEM_Q);
 
 }
 
@@ -711,7 +716,7 @@ int main(int argc, char **argv)
 
     while(1)
     {
-        take_semaphore(SEM_Q);
+
         res = check_queue();
         switch(res)
         {
@@ -720,7 +725,6 @@ int main(int argc, char **argv)
                 break;
             case 0:
                 invite_client(FROM_QUEUE);
-                give_semaphore(SEM_Q);
                 cut();
                 break;
         }

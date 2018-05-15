@@ -305,6 +305,7 @@ void give_semaphore(int sem)
 
 int check_golibrodas_state()
 {
+    take_semaphore(SEM_Q);
     return *ptr_dream;
 }
 
@@ -314,7 +315,7 @@ int seek_free_sit()
     else return 1;
 }
 
-void go_out()
+void go_out_no_chairs()
 {
     time_point();
     printf("Opuszczenie zakładku z powodu braku wolnych miejsc w poczekalni: %d [%ld:%ld]\n", getpid(), time_info.tv_sec/60, time_info.tv_nsec/1000);
@@ -322,8 +323,19 @@ void go_out()
     exit(EXIT_SUCCESS);
 }
 
+void go_out_end_cutting()
+{
+    time_point();
+    printf("Opuszczenie zakładu po zakończeniu strzyżenia: %d [%ld:%ld]\n", getpid(), time_info.tv_sec/60, time_info.tv_nsec/1000);
+    *ptr_ifOnChair = 0;
+}
+
 void wait_in_queue()
 {
+
+    time_point();
+    printf("Zajęcie miejsca w poczekalni: %d [%ld:%ld]\n", getpid(), time_info.tv_sec/60, time_info.tv_nsec/1000);
+
     int res;
 
     buf.mtype = 1;
@@ -338,30 +350,28 @@ void wait_in_queue()
 
     *ptr_queueLen = *ptr_queueLen + 1;
 
-    time_point();
-    printf("Zajęcie miejsca w poczekalni: %d [%ld:%ld]\n", getpid(), time_info.tv_sec/60, time_info.tv_nsec/1000);
-    give_semaphore(SEM_Q);
 
+    give_semaphore(SEM_Q);
 
     while(1)
     {
         if(*ptr_invitedID == getpid() && *ptr_ifOnChair == 0) break;
     }
 
-
-
 }
 
 void wake()
 {
 
-    *ptr_invitedID = getpid();
     time_point();
     printf("Obudzenie Golibrody: %d [%ld:%ld]\n", getpid(), time_info.tv_sec/60, time_info.tv_nsec/1000);
+    *ptr_invitedID = getpid();
     *ptr_dream = 0;
+
     give_semaphore(SEM_FAS);
     give_semaphore(SEM_Q);
-    sit_in_chair();
+
+
 
 }
 
@@ -400,8 +410,6 @@ int main(int argc, char **argv)
     for(int i = 0; i < nmbOfHaircut; i++)
     {
 
-        take_semaphore(SEM_Q);
-
         res = check_golibrodas_state();
         switch(res)
         {
@@ -410,26 +418,20 @@ int main(int argc, char **argv)
                 switch(res2)
                 {
                     case 0:
-                        go_out();
+                        go_out_no_chairs();
                         break;
                     case 1:
                         wait_in_queue();
-                        sit_in_chair();
-                        wait_for_the_end();
-                        time_point();
-                        printf("Opuszczenie zakładu po zakończeniu strzyżenia: %d [%ld:%ld]\n", getpid(), time_info.tv_sec/60, time_info.tv_nsec/1000);
-                        *ptr_ifOnChair = 0;
                         break;
                 }
                 break;
             case 1:
                 wake();
-                wait_for_the_end();
-                time_point();
-                printf("Opuszczenie zakładu po zakończeniu strzyżenia: %d [%ld:%ld]\n", getpid(), time_info.tv_sec/60, time_info.tv_nsec/1000);
-                *ptr_ifOnChair = 0;
                 break;
         }
+        sit_in_chair();
+        wait_for_the_end();
+        go_out_end_cutting();
     }
 
     exit(EXIT_SUCCESS);
