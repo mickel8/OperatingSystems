@@ -24,6 +24,7 @@
 #define SEMID_PROJ_ID 117
 #define INVITEDID_PROJ_ID 118
 #define IFONCHAR_PROJ_ID 119
+#define SHMVAR_PROJ_ID 120
 
 #define SEM_FAS 0   // 0
 #define SEM_D 1     // 1
@@ -32,6 +33,8 @@
 
 
 #define SEM_NMB 4
+
+#define SHMNMB 7
 
 #define THE_ONLY_ONE 0
 #define FROM_QUEUE 1

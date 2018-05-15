@@ -11,6 +11,9 @@ static int      *ptr_semID;      // pointer in shm for sem id
 static int      *ptr_invitedID;   // pointer in shm for invited client ID
 static int      *ptr_ifOnChair;   // pointer in shm with inf. that invited client is on chair or not
 
+static int      *ptr_shmvar;
+
+
 static long sec;
 static long msec;
 
@@ -57,171 +60,25 @@ void get_pathname()
 
 }
 
-void get_fifo()
+void get_shm_var_tab()
 {
 
     int shmid;
     key_t key;
 
-    key = ftok(ptr_p, QUEUE_PROJ_ID);
+    key = ftok(ptr_p, SHMVAR_PROJ_ID);
 
-    shmid = shmget(key, sizeof(int), S_IRUSR | S_IWUSR);
+    shmid = shmget(key, SHMNMB * sizeof(int), S_IRUSR | S_IWUSR);
     if(shmid == -1)
     {
-        perror("get_fifo -> shmget");
+        perror("get_shm_var_tab -> shmget");
         exit(EXIT_FAILURE);
     }
 
-    ptr_f = shmat(shmid, NULL, 0);
-    if(ptr_f == (int *) -1)
+    ptr_shmvar = shmat(shmid, NULL, 0);
+    if(ptr_shmvar == (int *) -1)
     {
-        perror("get_fifo -> shmat");
-        exit(EXIT_FAILURE);
-    }
-
-}
-
-void get_chairs()
-{
-
-    int shmid;
-    key_t key;
-
-    key = ftok(ptr_p, CHAIRS_PROJ_ID);
-
-    shmid = shmget(key, sizeof(int), S_IRUSR | S_IWUSR);
-    if(shmid == -1)
-    {
-        perror("get_chairs -> shmget");
-        exit(EXIT_FAILURE);
-    }
-
-    ptr_chairs = shmat(shmid, NULL, 0);
-    if(ptr_chairs == (int *) -1)
-    {
-        perror("get_chairs -> shmat");
-        exit(EXIT_FAILURE);
-    }
-
-}
-
-void get_dream()
-{
-
-    int shmid;
-    key_t key;
-
-    key = ftok(ptr_p, DREAM_PROJ_ID);
-
-    shmid = shmget(key, sizeof(int), S_IRUSR | S_IWUSR);
-    if(shmid == -1)
-    {
-        perror("get_dream -> shmget");
-        exit(EXIT_FAILURE);
-    }
-
-    ptr_dream = shmat(shmid, NULL, 0);
-    if(ptr_dream == (int *) -1)
-    {
-        perror("get_dream -> shmat");
-        exit(EXIT_FAILURE);
-    }
-
-}
-
-void get_queueLen()
-{
-
-    int shmid;
-    key_t key;
-
-    key = ftok(ptr_p, QUEUELEN_PROJ_ID);
-
-    shmid = shmget(key, sizeof(int), S_IRUSR | S_IWUSR);
-    if(shmid == -1)
-    {
-        perror("get_queueLen -> shmget");
-        exit(EXIT_FAILURE);
-    }
-
-    ptr_queueLen = shmat(shmid, NULL, 0);
-    if(ptr_queueLen == (int *) -1)
-    {
-        perror("get_fifo -> shmat");
-        exit(EXIT_FAILURE);
-    }
-
-}
-
-void get_semID()
-{
-
-    int shmid;
-    key_t key;
-
-    key = ftok(ptr_p, SEMID_PROJ_ID);
-
-    shmid = shmget(key, sizeof(int), S_IRUSR | S_IWUSR);
-    if(shmid == -1)
-    {
-        perror("get_semID -> shmget");
-        exit(EXIT_FAILURE);
-    }
-
-    ptr_semID = shmat(shmid, NULL, 0);
-    if(ptr_semID == (int *) -1)
-    {
-        perror("get_semID -> shmat");
-        exit(EXIT_FAILURE);
-    }
-
-}
-
-
-void get_invitedID()
-{
-
-    int shmid;
-    key_t key;
-
-    key = ftok(ptr_p, INVITEDID_PROJ_ID);
-
-    shmid = shmget(key, sizeof(int), S_IRUSR | S_IWUSR);
-    if(shmid == -1)
-    {
-        perror("get_invitedID -> shmget");
-        exit(EXIT_FAILURE);
-    }
-
-    ptr_invitedID = shmat(shmid, NULL, 0);
-    if(ptr_invitedID == (int *) -1)
-    {
-        perror("ptr_invitedID -> shmat");
-        exit(EXIT_FAILURE);
-    }
-
-}
-
-
-void get_ifOnChair()
-{
-
-    int shmid;
-    key_t key;
-
-    key = ftok(ptr_p, IFONCHAR_PROJ_ID);
-
-    shmid = shmget(key, sizeof(int), S_IRUSR | S_IWUSR);
-    if(shmid == -1)
-    {
-        perror("get_ifOnChair -> shmget");
-        exit(EXIT_FAILURE);
-    }
-
-    ptr_ifOnChair = shmat(shmid, NULL, 0);
-    if(ptr_semID == (int *) -1)
-    {
-        perror("get_ifOnChair -> shmat");
+        perror("get_shm_var_tab -> shmat");
         exit(EXIT_FAILURE);
     }
 
@@ -239,16 +96,22 @@ void clean_workplace()
 
 }
 
+void initialize_ptrs_for_shm_vars()
+{
+    ptr_f          = &ptr_shmvar[0];
+    ptr_chairs     = &ptr_shmvar[2];
+    ptr_dream      = &ptr_shmvar[3];
+    ptr_queueLen   = &ptr_shmvar[4];
+    ptr_semID      = &ptr_shmvar[5];
+    ptr_invitedID  = &ptr_shmvar[6];
+    ptr_ifOnChair  = &ptr_shmvar[7];
+}
+
 void get_shm_variables()
 {
     get_pathname();
-    get_fifo();
-    get_chairs();
-    get_dream();
-    get_queueLen();
-    get_semID();
-    get_invitedID();
-    get_ifOnChair();
+    get_shm_var_tab();
+    initialize_ptrs_for_shm_vars();
 }
 
 void take_semaphore(int sem)
@@ -350,15 +213,12 @@ void wake()
 
     give_semaphore(SEM_FAS);
     give_semaphore(SEM_Q);
-
-
-
 }
 
 void sit_in_chair()
 {
     time_point();
-    printf("Zjęcie miejsca na krześle do strzyżenia: %d [%ld:%ld]\n", getpid(), sec, msec);
+    printf(RED "Zajęcie miejsca na krześle do strzyżenia: " RES BLU "%d" RES GRN "[%ld:%ld]" RES "\n" , getpid(), sec, msec);
     *ptr_ifOnChair = getpid();
 }
 
