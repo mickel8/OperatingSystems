@@ -2,26 +2,28 @@
 
 #include "utils.h"
 
-static char     *ptr_p;          // pointer in shm for pathname for ftok()
-static int      *ptr_f;          // pointer in shm for fifo queue id client -> golibroda
-static int      *ptr_chairs;     // pointer in shm for number of chairs
-static int      *ptr_dream;      // pointer in shm for checking dream
-static int      *ptr_queueLen;   // pointer in shm for lenght of queue
-static int      *ptr_semID;      // pointer in shm for sem id
+static int      *ptr_f;           // pointer in shm for fifo queue id client -> golibroda
+static int      *ptr_chairs;      // pointer in shm for number of chairs
+static int      *ptr_dream;       // pointer in shm for checking dream
+static int      *ptr_queueLen;    // pointer in shm for lenght of queue
 static int      *ptr_invitedID;   // pointer in shm for invited client ID
 static int      *ptr_ifOnChair;   // pointer in shm with inf. that invited client is on chair or not
-
 static int      *ptr_shmvar;
 
+static sem_t *sem_q;
+static sem_t *sem_fas;
+static sem_t *sem_c;
+
+static int vartab_fd;
 
 static long sec;
 static long msec;
 
 static struct msgp buf;
 static struct timespec time_info;
-static struct sembuf sembuf_tab[1];
 
 void sit_in_chair(void);
+
 
 
 void time_point()
@@ -40,45 +42,23 @@ void time_point()
     msec = time_info.tv_nsec/1000;
 }
 
-void get_pathname()
-{
-    int shmid;
-
-    shmid = shmget(keyForPathname, 200, S_IRUSR | S_IWUSR);
-    if(shmid == -1)
-    {
-        perror("c: get_pathname -> shmget");
-        exit(EXIT_FAILURE);
-    }
-
-    ptr_p = shmat(shmid, NULL, 0);
-    if(ptr_p == (char *) -1)
-    {
-        perror("c: get_pathname -> shmat");
-        exit(EXIT_FAILURE);
-    }
-
-}
-
 void get_shm_var_tab()
 {
+    int res;
 
-    int shmid;
-    key_t key;
-
-    key = ftok(ptr_p, SHMVAR_PROJ_ID);
-
-    shmid = shmget(key, SHMNMB * sizeof(int), S_IRUSR | S_IWUSR);
-    if(shmid == -1)
+    res = shm_open(VARTAB_SHM, O_RDWR, S_IWUSR | S_IRUSR);
+    if(res == -1)
     {
-        perror("get_shm_var_tab -> shmget");
+        perror("get_shm_var_tab -> shm_open");
         exit(EXIT_FAILURE);
     }
 
-    ptr_shmvar = shmat(shmid, NULL, 0);
-    if(ptr_shmvar == (int *) -1)
+    vartab_fd = res;
+
+    ptr_shmvar = mmap(NULL, SHMNMB * sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED, vartab_fd, 0);
+    if(ptr_shmvar== (int *)-1)
     {
-        perror("get_shm_var_tab -> shmat");
+        perror("get_shm_var_tab -> mmap");
         exit(EXIT_FAILURE);
     }
 
@@ -88,10 +68,11 @@ void clean_workplace()
 {
     int res;
 
-    res = shmdt(ptr_p);
+    res = munmap(ptr_shmvar, SHMNMB * sizeof(int));
     if(res == -1)
     {
-        perror("clean_shm -> shmdt(ptr_p)");
+        perror("clean_workplace -> munmap");
+        exit(EXIT_FAILURE);
     }
 
 }
@@ -99,33 +80,67 @@ void clean_workplace()
 void initialize_ptrs_for_shm_vars()
 {
     ptr_f          = &ptr_shmvar[0];
-    ptr_chairs     = &ptr_shmvar[2];
-    ptr_dream      = &ptr_shmvar[3];
-    ptr_queueLen   = &ptr_shmvar[4];
-    ptr_semID      = &ptr_shmvar[5];
-    ptr_invitedID  = &ptr_shmvar[6];
-    ptr_ifOnChair  = &ptr_shmvar[7];
+    ptr_chairs     = &ptr_shmvar[1];
+    ptr_dream      = &ptr_shmvar[2];
+    ptr_queueLen   = &ptr_shmvar[3];
+    ptr_invitedID  = &ptr_shmvar[4];
+    ptr_ifOnChair  = &ptr_shmvar[5];
 }
 
 void get_shm_variables()
 {
-    get_pathname();
     get_shm_var_tab();
     initialize_ptrs_for_shm_vars();
+}
+
+void get_sems()
+{
+    const char *nq = "sem_q";
+    const char *nfas = "sem_fas";
+    const char *nc = "sem_c";
+
+    sem_q   = sem_open(nq, O_RDWR);
+    if(sem_q == SEM_FAILED)
+    {
+        perror("get_sems -> nq");
+        exit(EXIT_FAILURE);
+    }
+
+    sem_fas = sem_open(nfas, O_RDWR);
+    if(sem_fas == SEM_FAILED)
+    {
+        perror("get_sems -> nfas");
+        exit(EXIT_FAILURE);
+    }
+
+    sem_c   = sem_open(nc, O_RDWR);
+    if(sem_c == SEM_FAILED)
+    {
+        perror("get_sems -> nc");
+        exit(EXIT_FAILURE);
+    }
 }
 
 void take_semaphore(int sem)
 {
     int res;
 
-    sembuf_tab[0].sem_op = -1;
-    sembuf_tab[0].sem_num = sem;
-    sembuf_tab[0].sem_flg = 0;
+    switch(sem)
+    {
+        case SEM_Q:
+            res = sem_wait(sem_q);
+            break;
+        case SEM_FAS:
+            res = sem_wait(sem_fas);
+            break;
+        case SEM_C:
+            res = sem_wait(sem_c);
+            break;
+    }
 
-    res = semop(*ptr_semID, sembuf_tab, 1);
     if(res == -1)
     {
-        perror("take_semaphore -> semop");
+        perror("take_semaphore -> sem_wait");
         exit(EXIT_FAILURE);
     }
 }
@@ -134,17 +149,26 @@ void give_semaphore(int sem)
 {
     int res;
 
-    sembuf_tab[0].sem_op = 1;
-    sembuf_tab[0].sem_num = sem;
-    sembuf_tab[0].sem_flg = 0;
+    switch(sem)
+    {
+        case SEM_Q:
+            res = sem_post(sem_q);
+            break;
+        case SEM_FAS:
+            res = sem_post(sem_fas);
+            break;
+        case SEM_C:
+            res = sem_post(sem_c);
+            break;
+    }
 
-    res = semop(*ptr_semID, sembuf_tab, 1);
     if(res == -1)
     {
-        perror("give_semaphore -> semop");
+        perror("give_semaphore -> sem_post");
         exit(EXIT_FAILURE);
     }
 }
+
 
 int check_golibrodas_state()
 {
@@ -228,8 +252,6 @@ void wait_for_the_end()
 }
 
 
-
-
 int main(int argc, char **argv)
 {
     int res;
@@ -237,6 +259,7 @@ int main(int argc, char **argv)
     int nmbOfHaircut = atoi(argv[1]);
 
     get_shm_variables();
+    get_sems();
 
 
     res = atexit(clean_workplace);
@@ -245,7 +268,6 @@ int main(int argc, char **argv)
         perror("main -> atexit");
         exit(EXIT_FAILURE);
     }
-
 
     for(int i = 0; i < nmbOfHaircut; i++)
     {

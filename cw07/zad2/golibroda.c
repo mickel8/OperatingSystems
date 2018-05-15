@@ -2,31 +2,29 @@
 
 #include "utils.h"
 
-#define shmVarNMB 3
-
-static char     *ptr_p;          // pointer in shm for pathname for ftok()
 static int      *ptr_f;          // pointer in shm for fifo queue id client -> golibroda
-static int      *ptr_pid;        // pointer in shm for pid of golibroda
+static pid_t    *ptr_pid;        // pointer in shm for pid of golibroda
 static int      *ptr_chairs;     // pointer in shm for number of chairs
 static int      *ptr_dream;      // pointer in shm for checking dream
 static int      *ptr_queueLen;   // pointer in shm for lenght of queue
-static int      *ptr_semID;      // pointer in shm for sem id
-static int      *ptr_invitedID;   // pointer in shm for invited client ID
+static int      *ptr_invitedID;  // pointer in shm for invited client ID
 static int      *ptr_ifOnChair;  // pointer in shm with inf. that invited client is on chair or not
-
 static int      *ptr_shmvar;
 
-static int shmids[shmVarNMB];
-static int shmidCounter = 0;
 static int queueID;
-static int semID;
 
 static long sec;
 static long msec;
 
 static struct msgp buf;
 static struct timespec time_info;
-static struct sembuf sembuf_tab[1];
+
+static sem_t *sem_q;
+static sem_t *sem_fas;
+static sem_t *sem_c;
+
+static int pid_fd;
+static int vartab_fd;
 
 
 void time_point()
@@ -45,109 +43,83 @@ void time_point()
     msec = time_info.tv_nsec/1000;
 }
 
-// set shared memory core
-int set_shm(char **argv, int size, char keyChar)
+void set_shm_for_pid()
 {
-    int shmid;
-    key_t key;
+    int res;
 
-    switch(keyChar)
+    res = shm_open(PID_SHM, O_CREAT | O_RDWR, S_IWUSR | S_IRUSR);
+    if(res == -1)
     {
-        case 'P':
-            key = keyForPathname;
-            break;
-        default:
-            key = ftok(argv[0], keyChar);
+        perror("set_shm_for_pid -> shm_open");
+        exit(EXIT_FAILURE);
     }
 
-    if(key == -1)
+    pid_fd = res;
+
+    res = ftruncate(pid_fd, sizeof(pid_t));
+    if(res == -1)
     {
-        perror("set_shaGRN_pathname -> ftok");
+        perror("set_shm_for_pid -> ftruncate");
         exit(EXIT_FAILURE);
     }
 
 
-    shmid = shmget(key, size, S_IRWXU | IPC_CREAT);
-    if(shmid == -1)
+    ptr_pid = mmap(NULL, sizeof(pid_t), PROT_READ | PROT_WRITE, MAP_SHARED, pid_fd, 0);
+    if(ptr_pid == (pid_t *) -1)
     {
-        perror("set_shaGRN_pathname -> shmget");
+        perror("set_shm_for_pid -> mmap");
         exit(EXIT_FAILURE);
     }
 
-    return shmid;
-}
-
-// set shaGRN memory for pathname requiGRN in ftok()
-int set_shm_for_pathname(char **argv)
-{
-    int shmid_p;
-    char *tmp_ptr_p;
-
-    shmid_p = set_shm(argv, 200, 'P'); // 'P' - pathname
-
-    ptr_p   = shmat(shmid_p, NULL, 0);
-    if(ptr_p == (char *)-1)
-    {
-        perror("shmat");
-        exit(0);
-    }
-
-    tmp_ptr_p = ptr_p;
-    strcpy(tmp_ptr_p, argv[0]);
-
-    return shmid_p;
-}
-
-int set_shm_for_pid(char **argv)
-{
-    int shmid_pid;
-
-    shmid_pid = set_shm(argv, sizeof(pid_t), PID_PROJ_ID);
-
-    ptr_pid = shmat(shmid_pid, NULL, 0);
-    if(ptr_pid == (pid_t *)-1)
-    {
-        perror("set_shm_for_fifo -> shmat");
-        exit(EXIT_FAILURE);
-    }
 
     *ptr_pid = getpid();
 
-    return shmid_pid;
 }
 
-int set_shm_for_var_tab(char **argv)
+void set_shm_for_var_tab()
 {
-    int shmid;
+    int res;
 
-    shmid = set_shm(argv, SHMNMB * sizeof(int), SHMVAR_PROJ_ID);
-
-    ptr_shmvar = shmat(shmid, NULL, 0);
-    if(ptr_shmvar == (int *)-1)
+    res = shm_open(VARTAB_SHM, O_CREAT | O_RDWR, S_IWUSR | S_IRUSR);
+    if(res == -1)
     {
-        perror("set_shm_for_var_tab -> shmat");
+        perror("set_shm_for_var_tab -> shm_open");
         exit(EXIT_FAILURE);
     }
 
-    return shmid;
+    vartab_fd = res;
+
+    res = ftruncate(vartab_fd, SHMNMB * sizeof(int));
+    if(res == -1)
+    {
+        perror("set_shm_for_var_tab -> ftruncate");
+        exit(EXIT_FAILURE);
+    }
+
+
+    ptr_shmvar = mmap(NULL, SHMNMB * sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED, vartab_fd, 0);
+    if(ptr_shmvar == (int *) -1)
+    {
+        perror("set_shm_for_var_tab -> mmap");
+        exit(EXIT_FAILURE);
+    }
+
 }
 
 void initialize_shm_vars(char **argv)
 {
     ptr_f          = &ptr_shmvar[0];
-    ptr_chairs     = &ptr_shmvar[2];
-    ptr_dream      = &ptr_shmvar[3];
-    ptr_queueLen   = &ptr_shmvar[4];
-    ptr_semID      = &ptr_shmvar[5];
-    ptr_invitedID  = &ptr_shmvar[6];
-    ptr_ifOnChair  = &ptr_shmvar[7];
+    ptr_chairs     = &ptr_shmvar[1];
+    ptr_dream      = &ptr_shmvar[2];
+    ptr_queueLen   = &ptr_shmvar[3];
+    ptr_invitedID  = &ptr_shmvar[4];
+    ptr_ifOnChair  = &ptr_shmvar[5];
 
 
     *ptr_f          = queueID;
     *ptr_chairs     = atoi(argv[1]);
     *ptr_dream      = 1;
     *ptr_queueLen   = 0;
-    *ptr_semID      = semID;
     *ptr_invitedID  = 0;
     *ptr_ifOnChair  = 0;
 }
@@ -155,15 +127,9 @@ void initialize_shm_vars(char **argv)
 // sets shaGRN memory for necessery variables
 void set_shm_for_variables(char **argv)
 {
-    shmids[shmidCounter] = set_shm_for_pathname(argv);
-    shmidCounter++;
-    shmids[shmidCounter] = set_shm_for_pid(argv);
-    shmidCounter++;
-    shmids[shmidCounter] = set_shm_for_var_tab(argv);
-    shmidCounter++;
+    set_shm_for_pid();
+    set_shm_for_var_tab();
     initialize_shm_vars(argv);
-
-
 }
 
 // handler for SIGTERM signal
@@ -271,37 +237,45 @@ void clean_shm()
 {
     int res;
 
-    res = shmdt(ptr_p);
-    if(res == -1)
-    {
-        perror("clean_shm -> shmdt(ptr_p)");
-    }
+    res = munmap(ptr_shmvar, SHMNMB * sizeof(int));
+    if(res == -1) perror("clean_shm -> munmap");
 
-    res = shmdt(ptr_shmvar);
-    if(res == -1)
-    {
-        perror("clean_shm -> shmdt(ptr_shmvar)");
-    }
+    res = shm_unlink(VARTAB_SHM);
+    if(res == -1) perror("clean_shm -> shm_unlink");
+}
 
-    res = shmdt(ptr_pid);
-    if(res == -1)
-    {
-        perror("clean_shm -> shmdt(ptr_pid)");
-    }
+void close_sems()
+{
+    int res;
 
-    for (int i = 0; i < shmVarNMB; i++)
-    {
-        res = shmctl(shmids[i], IPC_RMID, NULL);
-        if(res == -1)
-        {
-            perror("clean_shm -> shmctl");
-        }
-    }
+    const char *nq = "sem_q";
+    const char *nfas = "sem_fas";
+    const char *nc = "sem_c";
+
+
+    res = sem_close(sem_q);
+    if(res == -1) perror("close_sems -> sem_close(sem_q)");
+
+    res = sem_close(sem_fas);
+    if(res == -1) perror("close_sems -> sem_close(sem_fas)");
+
+    res = sem_close(sem_c);
+    if(res == -1) perror("close_sems -> sem_close(sem_c)");
+
+    res = sem_unlink(nq);
+    if(res == -1) perror("close_sems -> sem_unlink(sem_q)");
+
+    res = sem_unlink(nfas);
+    if(res == -1) perror("close_sems -> sem_unlink(sem_fas)");
+
+    res = sem_unlink(nc);
+    if(res == -1) perror("close_sems -> sem_unlink(sem_c)");
 
 }
 
 void clean_workplace()
 {
+    close_sems();
     delete_queue();
     clean_shm();
 }
@@ -320,54 +294,41 @@ void take_from_queue()
 
 void create_semaphore(char **argv)
 {
-    key_t key = ftok(argv[0], SEM_PROJ_ID);
-    if(key == -1)
+    const char *nq = "sem_q";
+    const char *nfas = "sem_fas";
+    const char *nc = "sem_c";
+
+    sem_q   = sem_open(nq, O_CREAT, S_IRUSR | S_IWUSR, 1);
+    if(sem_q == SEM_FAILED)
     {
-        perror("create_semaphore -> ftok");
+        perror("create_semaphore -> nq");
         exit(EXIT_FAILURE);
     }
 
-    semID = semget(key, SEM_NMB, S_IRUSR | S_IWUSR | IPC_CREAT);
-    if(semID < 0)
+    sem_fas = sem_open(nfas, O_CREAT, S_IRUSR | S_IWUSR, 0);
+    if(sem_fas == SEM_FAILED)
     {
-        perror("create_semaphore -> semget");
+        perror("create_semaphore -> nfas");
         exit(EXIT_FAILURE);
     }
 
-    int res;
-    union semun arg;
-
-    arg.val = 0;
-    res = semctl(semID, 0, SETVAL, arg);
-    if(res == -1)
+    sem_c   = sem_open(nc, O_CREAT, S_IRUSR | S_IWUSR, 0);
+    if(sem_c == SEM_FAILED)
     {
-        perror("create_semaphore -> semctl");
+        perror("create_semaphore -> nc");
         exit(EXIT_FAILURE);
     }
 
-    arg.val = 1;
-    res = semctl(semID, 1, SETVAL, arg);
-    if(res == -1)
-    {
-        perror("create_semaphore -> semctl");
-        exit(EXIT_FAILURE);
-    }
+    // int valp;
+    // sem_getvalue(sem_q, &valp);
+    // printf("%d\n", valp);
+    //
+    // sem_getvalue(sem_fas, &valp);
+    // printf("%d\n", valp);
+    //
+    // sem_getvalue(sem_c, &valp);
+    // printf("%d\n", valp);
 
-    arg.val = 1;
-    res = semctl(semID, 2, SETVAL, arg);
-    if(res == -1)
-    {
-        perror("create_semaphore -> semctl");
-        exit(EXIT_FAILURE);
-    }
-
-    arg.val = 0;
-    res = semctl(semID, 3, SETVAL, arg);
-    if(res == -1)
-    {
-        perror("create_semaphore -> semctl");
-        exit(EXIT_FAILURE);
-    }
 
 }
 
@@ -375,30 +336,47 @@ void take_semaphore(int sem)
 {
     int res;
 
-    sembuf_tab[0].sem_op = -1;
-    sembuf_tab[0].sem_num = sem;
-    sembuf_tab[0].sem_flg = 0;
+    switch(sem)
+    {
+        case SEM_Q:
+            res = sem_wait(sem_q);
+            break;
+        case SEM_FAS:
+            res = sem_wait(sem_fas);
+            break;
+        case SEM_C:
+            res = sem_wait(sem_c);
+            break;
+    }
 
-    res = semop(*ptr_semID, sembuf_tab, 1);
     if(res == -1)
     {
-        perror("take_semaphore -> semop");
+        perror("take_semaphore -> sem_wait");
         exit(EXIT_FAILURE);
     }
+
 }
 
 void give_semaphore(int sem)
 {
     int res;
 
-    sembuf_tab[0].sem_op = 1;
-    sembuf_tab[0].sem_num = sem;
-    sembuf_tab[0].sem_flg = 0;
+    switch(sem)
+    {
+        case SEM_Q:
+            res = sem_post(sem_q);
+            break;
+        case SEM_FAS:
+            res = sem_post(sem_fas);
+            break;
+        case SEM_C:
+            res = sem_post(sem_c);
+            break;
+    }
 
-    res = semop(*ptr_semID, sembuf_tab, 1);
     if(res == -1)
     {
-        perror("give_semaphore -> semop");
+        perror("give_semaphore -> sem_post");
         exit(EXIT_FAILURE);
     }
 }
@@ -428,7 +406,7 @@ int check_queue()
 
 }
 
-void invite_client(int who)
+void invite_client()
 {
 
     take_from_queue();
@@ -438,7 +416,7 @@ void invite_client(int who)
     printf(RED "Zaproszenie klienta: " RES BLU "%d" RES GRN " [%ld:%ld]\n" RES, clientID, sec, msec);
     *ptr_invitedID = clientID;
 
-    // wait until client is in chair
+    // wait until client is not in chair
     while(*ptr_ifOnChair != clientID)
     {
 
@@ -482,7 +460,7 @@ void fall_asleep()
 
     while(*ptr_ifOnChair == 0)
     {
-
+        //
     }
 
     time_point();
@@ -518,12 +496,10 @@ int main(int argc, char **argv)
     }
 
 
-
     //block_signals();
     handle_SIGTERM_signal();
     create_semaphore(argv);
     set_shm_for_variables(argv);
-
 
     while(1)
     {
@@ -535,7 +511,7 @@ int main(int argc, char **argv)
                 fall_asleep();
                 break;
             case 0:
-                invite_client(FROM_QUEUE);
+                invite_client();
                 cut();
                 break;
         }
