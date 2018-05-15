@@ -4,7 +4,6 @@
 
 static char     *ptr_p;          // pointer in shm for pathname for ftok()
 static int      *ptr_f;          // pointer in shm for fifo queue id client -> golibroda
-static int      *ptr_f_client;   // pointer in shm for fifo queue id golibroda -> client
 static int      *ptr_chairs;     // pointer in shm for number of chairs
 static int      *ptr_dream;      // pointer in shm for checking dream
 static int      *ptr_queueLen;   // pointer in shm for lenght of queue
@@ -12,12 +11,14 @@ static int      *ptr_semID;      // pointer in shm for sem id
 static int      *ptr_invitedID;   // pointer in shm for invited client ID
 static int      *ptr_ifOnChair;   // pointer in shm with inf. that invited client is on chair or not
 
+static long sec;
+static long msec;
+
 static struct msgp buf;
 static struct timespec time_info;
 static struct sembuf sembuf_tab[1];
 
 void sit_in_chair(void);
-
 
 
 void time_point()
@@ -31,6 +32,9 @@ void time_point()
         perror("time_point -> clock_gettime");
         exit(EXIT_FAILURE);
     }
+
+    sec  = time_info.tv_sec/60;
+    msec = time_info.tv_nsec/1000;
 }
 
 void get_pathname()
@@ -72,29 +76,6 @@ void get_fifo()
     if(ptr_f == (int *) -1)
     {
         perror("get_fifo -> shmat");
-        exit(EXIT_FAILURE);
-    }
-
-}
-
-void get_fifo_client()
-{
-    int shmid;
-    key_t key;
-
-    key = ftok(ptr_p, QUEUE_CLIENT_PROJ_ID);
-
-    shmid = shmget(key, sizeof(int), S_IRUSR | S_IWUSR);
-    if(shmid == -1)
-    {
-        perror("get_fifo_client -> shmget");
-        exit(EXIT_FAILURE);
-    }
-
-    ptr_f_client = shmat(shmid, NULL, 0);
-    if(ptr_f_client == (int *) -1)
-    {
-        perror("get_fifo_client -> shmat");
         exit(EXIT_FAILURE);
     }
 
@@ -262,7 +243,6 @@ void get_shm_variables()
 {
     get_pathname();
     get_fifo();
-    get_fifo_client();
     get_chairs();
     get_dream();
     get_queueLen();
@@ -318,7 +298,7 @@ int seek_free_sit()
 void go_out_no_chairs()
 {
     time_point();
-    printf("Opuszczenie zakładku z powodu braku wolnych miejsc w poczekalni: %d [%ld:%ld]\n", getpid(), time_info.tv_sec/60, time_info.tv_nsec/1000);
+    printf("Opuszczenie zakładku z powodu braku wolnych miejsc w poczekalni: %d [%ld:%ld]\n", getpid(), sec, msec);
     give_semaphore(SEM_Q);
     exit(EXIT_SUCCESS);
 }
@@ -326,7 +306,7 @@ void go_out_no_chairs()
 void go_out_end_cutting()
 {
     time_point();
-    printf("Opuszczenie zakładu po zakończeniu strzyżenia: %d [%ld:%ld]\n", getpid(), time_info.tv_sec/60, time_info.tv_nsec/1000);
+    printf("Opuszczenie zakładu po zakończeniu strzyżenia: %d [%ld:%ld]\n", getpid(), sec, msec);
     *ptr_ifOnChair = 0;
 }
 
@@ -334,7 +314,7 @@ void wait_in_queue()
 {
 
     time_point();
-    printf("Zajęcie miejsca w poczekalni: %d [%ld:%ld]\n", getpid(), time_info.tv_sec/60, time_info.tv_nsec/1000);
+    printf("Zajęcie miejsca w poczekalni: %d [%ld:%ld]\n", getpid(), sec, msec);
 
     int res;
 
@@ -364,7 +344,7 @@ void wake()
 {
 
     time_point();
-    printf("Obudzenie Golibrody: %d [%ld:%ld]\n", getpid(), time_info.tv_sec/60, time_info.tv_nsec/1000);
+    printf("Obudzenie Golibrody: %d [%ld:%ld]\n", getpid(), sec, msec);
     *ptr_invitedID = getpid();
     *ptr_dream = 0;
 
@@ -378,7 +358,7 @@ void wake()
 void sit_in_chair()
 {
     time_point();
-    printf("Zjęcie miejsca na krześle do strzyżenia: %d [%ld:%ld]\n", getpid(), time_info.tv_sec/60, time_info.tv_nsec/1000);
+    printf("Zjęcie miejsca na krześle do strzyżenia: %d [%ld:%ld]\n", getpid(), sec, msec);
     *ptr_ifOnChair = getpid();
 }
 

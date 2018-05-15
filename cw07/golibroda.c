@@ -2,11 +2,10 @@
 
 #include "utils.h"
 
-#define shmVarNMB 10
+#define shmVarNMB 9
 
 static char     *ptr_p;          // pointer in shm for pathname for ftok()
 static int      *ptr_f;          // pointer in shm for fifo queue id client -> golibroda
-static int      *ptr_f_client;    // pointer in shm for fifo queue id golibroda -> client
 static pid_t    *ptr_pid;        // pointer in shm for pid of golibroda
 static int      *ptr_chairs;     // pointer in shm for number of chairs
 static int      *ptr_dream;      // pointer in shm for checking dream
@@ -18,7 +17,6 @@ static int      *ptr_ifOnChair;  // pointer in shm with inf. that invited client
 static int shmids[shmVarNMB];
 static int shmidCounter = 0;
 static int queueID;
-static int queueID_client;
 static int semID;
 
 static long sec;
@@ -115,25 +113,6 @@ int set_shm_for_queueID(char **argv)
 
     *ptr_f = queueID;
 
-    return shmid_f;
-}
-
-// set shaGRN memory for fifo queue id client
-int set_shm_for_queueID_client(char **argv)
-{
-    int shmid_f;
-
-    shmid_f = set_shm(argv, sizeof(int), QUEUE_CLIENT_PROJ_ID);
-
-    ptr_f_client = shmat(shmid_f, NULL, 0);
-    if(ptr_f_client == (int *)-1)
-    {
-        perror("set_shm_for_queueID_client -> shmat");
-        exit(EXIT_FAILURE);
-    }
-
-    *ptr_f_client = queueID_client;
-    printf("%d\n", *ptr_f_client);
     return shmid_f;
 }
 
@@ -278,8 +257,6 @@ void set_shm_for_variables(char **argv)
     shmidCounter++;
     shmids[shmidCounter] = set_shm_for_queueLen(argv);
     shmidCounter++;
-    shmids[shmidCounter] = set_shm_for_queueID_client(argv);
-    shmidCounter++;
     shmids[shmidCounter] = set_shm_for_semID(argv);
     shmidCounter++;
     shmids[shmidCounter] = set_shm_for_ifOnChair(argv);
@@ -389,45 +366,6 @@ void delete_queue()
 
 }
 
-void create_queue_client(char **argv)
-{
-    int res;
-    key_t key;
-
-    key = ftok(argv[0], QUEUE_CLIENT_PROJ_ID);
-    if(key == -1)
-    {
-        perror("create_queue_client -> ftok");
-        exit(EXIT_FAILURE);
-    }
-
-    res = msgget(key, IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
-    if(res == -1)
-    {
-        perror("create_queue_client -> msgget");
-        exit(EXIT_FAILURE);
-    }
-    else
-    {
-        queueID_client = res;
-    }
-
-}
-
-// deletes clients queue
-void delete_queue_client()
-{
-    int res;
-
-    res = msgctl(queueID_client, IPC_RMID, NULL);
-    if(res == -1)
-    {
-        perror("delete_queue_client -> msgctl");
-        exit(EXIT_FAILURE);
-    }
-
-}
-
 void clean_shm()
 {
     int res;
@@ -476,7 +414,6 @@ void clean_shm()
 void clean_workplace()
 {
     delete_queue();
-    delete_queue_client();
     clean_shm();
 }
 
@@ -490,21 +427,6 @@ void take_from_queue()
         perror("take_from_queue -> msgrcv");
         exit(EXIT_FAILURE);
     }
-}
-
-void send_signal_for_client(int clientID)
-{
-    int res;
-
-    buf.mtype = clientID;
-
-    res = msgsnd(*ptr_f_client, &buf, sizeof(buf) - sizeof(long), IPC_NOWAIT);
-    if(res == -1)
-    {
-        perror("wait_in_queue -> msgsnd");
-        exit(EXIT_FAILURE);
-    }
-
 }
 
 void create_semaphore(char **argv)
@@ -648,6 +570,7 @@ void cut()
     time_point();
     printf("Zakończenie strzyżenia klienta: %d" GRN " [%ld:%ld]\n" RES, clientID, sec, msec);
 
+    *ptr_invitedID = 0;
     give_semaphore(SEM_C);
 
     while(*ptr_ifOnChair != 0)
@@ -697,7 +620,6 @@ int main(int argc, char **argv)
     int res;
 
     create_queue(argv);
-    create_queue_client(argv);
 
     res = atexit(clean_workplace);
     if(res != 0)
