@@ -38,7 +38,7 @@ void time_point()
         exit(EXIT_FAILURE);
     }
 
-    sec  = time_info.tv_sec/60;
+    sec  = time_info.tv_sec;
     msec = time_info.tv_nsec/1000;
 }
 
@@ -187,7 +187,6 @@ void go_out_no_chairs()
     time_point();
     printf("Opuszczenie zakładku z powodu braku wolnych miejsc w poczekalni: %d [%ld:%ld]\n", getpid(), sec, msec);
     give_semaphore(SEM_Q);
-    exit(EXIT_SUCCESS);
 }
 
 void go_out_end_cutting()
@@ -236,7 +235,6 @@ void wake()
     *ptr_dream = 0;
 
     give_semaphore(SEM_FAS);
-    give_semaphore(SEM_Q);
 }
 
 void sit_in_chair()
@@ -256,6 +254,7 @@ int main(int argc, char **argv)
 {
     int res;
     int res2;
+    int visits = 0;
     int nmbOfHaircut = atoi(argv[1]);
 
     get_shm_variables();
@@ -269,7 +268,7 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    for(int i = 0; i < nmbOfHaircut; i++)
+    while(1)
     {
 
         res = check_golibrodas_state();
@@ -284,16 +283,24 @@ int main(int argc, char **argv)
                         break;
                     case 1:
                         wait_in_queue();
+                        sit_in_chair();
+                        wait_for_the_end();
+                        visits++;
+                        go_out_end_cutting();
                         break;
                 }
                 break;
             case 1:
                 wake();
+                sit_in_chair();
+                give_semaphore(SEM_Q);
+                wait_for_the_end();
+                visits++;
+                go_out_end_cutting();
                 break;
         }
-        sit_in_chair();
-        wait_for_the_end();
-        go_out_end_cutting();
+
+        if(visits >= nmbOfHaircut) break;
     }
 
     exit(EXIT_SUCCESS);

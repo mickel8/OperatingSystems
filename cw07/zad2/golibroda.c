@@ -39,7 +39,7 @@ void time_point()
         exit(EXIT_FAILURE);
     }
 
-    sec  = time_info.tv_sec/60;
+    sec  = time_info.tv_sec;
     msec = time_info.tv_nsec/1000;
 }
 

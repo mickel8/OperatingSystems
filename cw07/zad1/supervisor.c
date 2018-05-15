@@ -6,30 +6,6 @@
 static char     *ptr_p;     // pointer for pathname for ftok()
 static pid_t    *ptr_pid;   // pointer for golibroda's pid
 
-int check_status(pid_t *children, int clientsNMB)
-{
-    int counter = 0;
-
-    for(int i = 0; i < clientsNMB; i++)
-    {
-        kill(children[i], 0);
-        if(errno == ESRCH)
-        {
-            counter++;
-        }
-        else if(errno)
-        {
-            perror("check_status -> kill");
-            exit(EXIT_FAILURE);
-        }
-
-        errno = 0;
-    }
-
-    if(counter == clientsNMB) return 0;
-    else return -1;
-}
-
 void get_pathname()
 {
     int shmid;
