@@ -1,0 +1,20 @@
+1 FILTR
+
+1 THREAD
+Real time: 0.860000, user time: 0.860000, system time: 0.000000
+2 THREAD
+Real time: 0.430000, user time: 0.850000, system time: 0.000000
+4 THREAD
+Real time: 0.330000, user time: 0.880000, system time: 0.000000
+8 THREAD
+Real time: 0.260000, user time: 0.880000, system time: 0.000000
+2 FILTR
+
+1 THREAD
+Real time: 3.480000, user time: 3.400000, system time: 0.070000
+2 THREAD
+Real time: 1.680000, user time: 3.340000, system time: 0.020000
+4 THREAD
+Real time: 0.960000, user time: 3.430000, system time: 0.010000
+8 THREAD
+Real time: 0.930000, user time: 3.430000, system time: 0.040000
