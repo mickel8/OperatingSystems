@@ -10,6 +10,10 @@
 #include <netinet/in.h>
 #include <endian.h>
 #include <arpa/inet.h>
+#include <sys/shm.h>
+#include <sys/ipc.h>
+
+#include <sys/stat.h>
 
 #include "utils.h"
 
@@ -20,6 +24,7 @@ void send_name_to_server(void);
 void close_socket(void);
 void int_action(int);
 void set_sigint_handler(void);
+void get_server_name(void);
 // ========================= //
 
 
@@ -31,6 +36,8 @@ static char *name     = NULL;
 static char *pathname = NULL;
 static char *ipAdress = NULL;
 static char *port     = NULL;
+
+static char *serverName;
 // ============================== //
 
 
@@ -45,6 +52,9 @@ int main(int argc, char **argv)
 
     name = calloc(strlen(argv[1]) + 1, sizeof(char));
     strcpy(name, argv[1]);
+    
+    set_sigint_handler();
+    get_server_name();
 
     connectionVersion = atoi(argv[2]);
 
@@ -67,13 +77,73 @@ int main(int argc, char **argv)
 
     send_name_to_server();
 
+
+    ssize_t readBytes;
+    ssize_t sentBytes;
+        
+    char *mess = calloc(MAX_MESS_LEN, sizeof(char));
+    
     while(1)
     {
+        
+        readBytes = recv(sockfd, mess, MAX_MESS_LEN, 0);
+        if(readBytes == -1) 
+        {
+            perror("main -> recv");
+            break;
+        }
+        else if (readBytes == 0)
+        {
+            printf("Server zamknął połączenie\n");
+            break;
+        }
+        else
+        {
+            if(mess[0] == CALC[0]) 
+            {
+        
+                char *type = calloc(2, sizeof(char));
 
+                printf("\e[96m** Odebrano wiadomość: %s **\e[39m\n", mess);
+
+                int a; 
+                char op; 
+                int b; 
+                int taskNmb;
+                
+                sscanf(mess, "%s %d %c %d %d", type, &a, &op, &b, &taskNmb);              	
+
+                int result;
+                if(op == '+') result = a + b;
+                else if(op == '-') result = a - b;
+                else if(op == '*') result = a * b;
+                else if(op == '/') result = a / b;
+
+                // prepare result to send
+                char *resultStr = calloc(MAX_MESS_LEN, sizeof(char));
+                sprintf(resultStr, "%s %d %d", RES, result, taskNmb);
+
+                int resultLen = strlen(resultStr) + 1;
+                // send result
+                sentBytes = send(sockfd, resultStr, resultLen, 0);
+                if(sentBytes != resultLen) perror("send_name_to_server -> send");
+                
+
+                printf("\e[92m** Wysłano odpowiedź %s **\e[39m\n", resultStr);
+
+                free(type);
+            }
+            else
+            {
+                printf("Nieznany rodzaj wiadomości\n");       
+            }
+        }
+    
     }
 
 
     close_socket();
+    free(name);
 
     return 0;
 }
@@ -83,17 +153,24 @@ void create_and_connect_network_socket()
 {
     int res;
     
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if(sockfd == -1) perror("create_network_socket -> socket");
     else printf("Utworzono gniazdo sieciowe\n");
-   
-    // ===== Connect ===== //
+
+    
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
     addr.sin_port = htobe16(atoi(port));
+    //addr.sin_addr.s_addr = INADDR_ANY;
+    
+    // // ===== Bind ===== //
+    // res = bind(sockfd, (struct sockaddr *) &addr, sizeof(addr));
+    // if(res == -1) perror("create_network_socket -> bind");
+    // else printf("Przypisano nazwę do gniazda sieciowego\n");
+   
+    // ===== Connect ===== //
     res = inet_aton(ipAdress, &addr.sin_addr);
     if(res == 0) perror("networkConnection -> inet_aton");
-    
     res = connect(sockfd, (struct sockaddr *) &addr, sizeof(addr));
     if(res == -1) perror("client -> connect");
     else printf("Połączono gniazdo sieciowe z serwerem\n");
@@ -103,17 +180,24 @@ void create_and_connect_local_socket()
 {
     int res;
 
-    sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
-    if(sockfd == -1) perror("create_local_socket -> socket");
+    sockfd = socket(AF_UNIX, SOCK_DGRAM, 0);
+    if(sockfd == -1) perror("create_and_connect_local_socket -> socket");
     else printf("Utworzono gniazdo lokalne\n");
-    
-    // ===== Connect ===== //
+
+
+    // ===== Bind ====== //
     struct sockaddr_un addr;
     addr.sun_family = AF_UNIX;
     strcpy(addr.sun_path, pathname);
 
+    res = bind(sockfd, (struct sockaddr *) &addr, sizeof(addr));
+    if(res == -1) perror("create_and_connect_local_socket -> bind");
+    else printf("Przypisano nazwę do gniazda lokalnego\n");
+    
+    strcpy(addr.sun_path, serverName);
+    // ===== Connect ===== //
     res = connect(sockfd, (struct sockaddr *) &addr, sizeof(addr));
-    if(res == -1) perror("client -> connect");
+    if(res == -1) perror("create_and_connect_local_socket -> connect");
     else printf("Połączono gniazdo lokalne z zerwerem\n");
 
 }
@@ -122,20 +206,13 @@ void send_name_to_server()
 {
     ssize_t sentBytes;
     ssize_t readBytes;
-    char *line = calloc(strlen(name) + 1, sizeof(char));
+    char *line = calloc(strlen(name) + 3, sizeof(char));
     char *mess_type = calloc(strlen(NAME)+ 1, sizeof(char));
-    strcpy(line, name);
-
-    // send info about name
-    sentBytes = send(sockfd, NAME, sizeof(NAME), 0); 
-    if(sentBytes != sizeof(NAME)) perror("send_name_to_server -> send");
     
-    // send len of name
-    long nameLen = htonl(strlen(line) + 1);
-    sentBytes = send(sockfd, &nameLen, sizeof(nameLen), 0);
-    if(sentBytes != sizeof(nameLen)) perror("send_name_to_server -> send");
-
     // send name
+    sprintf(line, "%s %s", NAME, name);
+    long nameLen = htonl(strlen(line) + 1);
+
     sentBytes = send(sockfd, line, ntohl(nameLen), 0);
     if(sentBytes != ntohl(nameLen)) perror("send_name_to_server -> send");
 
@@ -166,14 +243,28 @@ void send_name_to_server()
         printf("Pomyślnie zarejestrowano nazwę\n");
         return;
     }
+    else 
+    {
+        printf("Nieznany rodzaj wiadomości: %s\n", mess_type);
+    }
+}
+
+void unregister()
+{
+    ssize_t sentBytes;
+    char *mess = calloc(strlen(name) + 3, sizeof(char));
+    sprintf(mess, "%s %s", UNREG, name);
+
+    sentBytes = send(sockfd, mess, strlen(mess) + 1, 0);
+    if(sentBytes != strlen(mess) + 1) perror("unregister -> send");
+
+    printf("Wyrejestrowano z serwera\n");
+
 }
 
 void close_socket()
 {
     int res;
-
-    res = shutdown(sockfd, SHUT_RDWR);
-    if(res == -1) perror("close_socket -> shutdown");
 
     res = close(sockfd);
     if(res == -1) perror("close_socket -> close");
@@ -182,6 +273,8 @@ void close_socket()
 
 void int_action(int signo)
 {
+    shmdt(serverName);
+    unregister();
     close_socket();
     if(connectionVersion == 1) unlink(pathname);
     exit(EXIT_SUCCESS);
@@ -198,4 +291,13 @@ void set_sigint_handler()
 
     res = sigaction(SIGINT, &intAct, NULL);
     if(res == -1) perror("set_sigint_handler -> sigaction");
+}
+
+void get_server_name()
+{
+    key_t key = ftok(keyPath, PROJ_ID);
+
+    int shmid = shmget(key, shm_size, S_IRUSR);
+
+    serverName = shmat(shmid, NULL, 0);
 }
